@@ -138,19 +138,47 @@ cache:
 
 ## Concepts
 
-### Moniker Path
+### Moniker Format
 
-Hierarchical identifier for any data asset:
+Full moniker format with all optional components:
 
 ```
-moniker://market-data/prices/equity/AAPL
-         └─ domain ─┘└ category ┘└ type ┘└ id ┘
+[namespace@]domain.subdomain/path/segments[@version][/vN][?params]
 ```
 
-Examples:
-- `market-data/prices/equity/AAPL` - Apple stock price
-- `reference/calendars/trading/NYSE` - NYSE trading calendar
-- `risk/var/desk/FX` - FX desk Value at Risk
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `namespace@` | Access scope or user context | `user@`, `verified@`, `official@` |
+| `domain.subdomain` | Data domain with dot notation | `indices.sovereign`, `commodities.derivatives` |
+| `/path/segments` | Hierarchical path | `/developed/EUR/ALL` |
+| `@version` | Point-in-time or version tag | `@20260115`, `@latest` |
+| `/vN` | Schema revision | `/v2`, `/v3` |
+| `?params` | Query parameters | `?format=json` |
+
+**Examples:**
+
+```bash
+# Simple path
+indices.sovereign/developed/EU.GovBondAgg/EUR/ALL
+
+# With version (point-in-time)
+commodities.derivatives/crypto/ETH@20260115
+
+# With version and revision
+commodities.derivatives/crypto/ETH@20260115/v2
+
+# With namespace (user-scoped view)
+user@analytics.risk/views/my-watchlist@20260115/v3
+
+# Official/verified source
+verified@reference.security/ISIN/US0378331005@latest
+
+# Positions by date
+holdings/positions/20260115/fund_alpha
+
+# With query params
+prices.equity/AAPL@20260115?format=json
+```
 
 ### Ownership Triple
 
@@ -165,11 +193,13 @@ Each node in the hierarchy can define:
 Ownership inherits down the hierarchy. Each field inherits independently.
 
 ```
-market-data/                 ← Owner: jane@firm.com, Specialist: team@firm.com
-├── prices/                  ← Inherits all from parent
-│   ├── equity/              ← Override: Specialist: equity-team@firm.com
-│   │   └── AAPL             ← Inherits from equity/
-│   └── fx/                  ← Inherits from prices/
+indices/                       ← Owner: governance@firm.com, Specialist: quant@firm.com
+├── indices.sovereign/         ← Inherits all from parent
+│   └── developed/             ← Inherits from indices.sovereign
+commodities/                   ← Owner: desk@firm.com
+├── commodities.derivatives/   ← Inherits from commodities
+│   ├── energy/                ← Inherits from commodities.derivatives
+│   └── crypto/                ← Override: Specialist: digital-assets@firm.com
 ```
 
 ### Source Bindings
@@ -183,8 +213,32 @@ Map moniker paths to actual data sources:
 | `rest` | REST APIs |
 | `static` | JSON/CSV/Parquet files |
 | `excel` | Excel files |
+| `opensearch` | OpenSearch/Elasticsearch |
 | `bloomberg` | Bloomberg BLPAPI |
 | `refinitiv` | Refinitiv Eikon/RDP |
+
+### Query Templates
+
+Source bindings can use template placeholders in queries:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `{path}` | Full sub-path after the binding |
+| `{segments[N]}` | Specific path segment (0-indexed) |
+| `{version}` | Version from `@suffix` |
+| `{revision}` | Revision from `/vN` suffix |
+| `{namespace}` | Namespace prefix if provided |
+
+Example Snowflake query template:
+```sql
+SELECT * FROM POSITIONS
+WHERE as_of_date = TO_DATE('{segments[0]}', 'YYYYMMDD')
+  AND portfolio_id = '{segments[1]}'
+```
+
+For moniker `holdings/positions/20260115/fund_alpha`:
+- `{segments[0]}` → `20260115`
+- `{segments[1]}` → `fund_alpha`
 
 ## API Endpoints
 
@@ -203,26 +257,33 @@ Map moniker paths to actual data sources:
 ### Example: Resolve
 
 ```bash
-curl http://localhost:8000/resolve/market-data/prices/equity/AAPL
+# Simple resolve
+curl http://localhost:8000/resolve/indices.sovereign/developed/EU.GovBondAgg/EUR
+
+# With version (point-in-time)
+curl http://localhost:8000/resolve/prices.equity/AAPL@20260115
+
+# With namespace prefix (user-scoped)
+curl http://localhost:8000/resolve/user@analytics.risk/views/my-watchlist@20260115/v3
 ```
 
 Response:
 ```json
 {
-  "moniker": "moniker://market-data/prices/equity/AAPL",
-  "path": "market-data/prices/equity/AAPL",
+  "moniker": "moniker://indices.sovereign/developed/EU.GovBondAgg/EUR",
+  "path": "indices.sovereign/developed/EU.GovBondAgg/EUR",
   "source_type": "snowflake",
   "connection": {
-    "account": "acme.us-east-1",
-    "warehouse": "COMPUTE_WH",
-    "database": "MARKET_DATA",
-    "schema": "PRICES"
+    "account": "firm-prod.us-east-1",
+    "warehouse": "ANALYTICS_WH",
+    "database": "INDICES",
+    "schema": "SOVEREIGN"
   },
-  "query": "SELECT symbol, price FROM EQUITY_PRICES WHERE symbol = 'AAPL'",
+  "query": "SELECT index_id, currency, weight, yield FROM DM_SOVEREIGN_INDICES WHERE index_family = 'EU.GovBondAgg' AND currency = 'EUR'",
   "ownership": {
-    "accountable_owner": "jane.smith@firm.com",
-    "data_specialist": "market-data-team@firm.com",
-    "support_channel": "#market-data-support"
+    "accountable_owner": "indices-governance@firm.com",
+    "data_specialist": "quant-research@firm.com",
+    "support_channel": "#indices-support"
   }
 }
 ```

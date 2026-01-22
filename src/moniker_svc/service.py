@@ -226,6 +226,54 @@ class MonikerService:
                 result=result,
             )
 
+    def _format_template(
+        self,
+        template: str,
+        moniker: Moniker,
+        sub_path: str | None,
+    ) -> str:
+        """
+        Format a template string with moniker components.
+
+        Supported placeholders:
+            {path}         - Full sub-path after the binding
+            {segments[N]}  - Specific path segment (0-indexed from sub_path)
+            {version}      - Version from @suffix (e.g., @20260115, @latest)
+            {revision}     - Revision from /vN suffix
+            {namespace}    - Namespace prefix if provided
+            {moniker}      - Full moniker string
+        """
+        import re
+
+        path = sub_path or str(moniker.path)
+        segments = path.split("/") if path else []
+
+        # Build substitution dict
+        subs = {
+            "path": path,
+            "version": moniker.version or "",
+            "revision": str(moniker.revision) if moniker.revision is not None else "",
+            "namespace": moniker.namespace or "",
+            "moniker": str(moniker),
+        }
+
+        result = template
+
+        # Handle {segments[N]} patterns
+        def replace_segment(match: re.Match) -> str:
+            idx = int(match.group(1))
+            if 0 <= idx < len(segments):
+                return segments[idx]
+            return ""
+
+        result = re.sub(r"\{segments\[(\d+)\]\}", replace_segment, result)
+
+        # Handle simple placeholders
+        for key, value in subs.items():
+            result = result.replace(f"{{{key}}}", value)
+
+        return result
+
     def _build_resolved_source(
         self,
         binding: SourceBinding,
@@ -235,6 +283,10 @@ class MonikerService:
         """Build the resolved source info from a binding."""
         config = binding.config
         source_type = binding.source_type.value
+
+        # Helper to format templates
+        def fmt(template: str) -> str:
+            return self._format_template(template, moniker, sub_path)
 
         # Extract connection info (remove query/sensitive bits)
         connection: dict[str, Any] = {}
@@ -251,12 +303,9 @@ class MonikerService:
             }
             # Build query
             if config.get("query"):
-                query = config["query"].format(
-                    path=sub_path or str(moniker.path),
-                    moniker=str(moniker),
-                )
+                query = fmt(config["query"])
             elif config.get("table"):
-                table = config["table"].format(path=sub_path or str(moniker.path))
+                table = fmt(config["table"])
                 query = f"SELECT * FROM {table}"
 
         elif source_type == "oracle":
@@ -267,12 +316,9 @@ class MonikerService:
                 "service_name": config.get("service_name"),
             }
             if config.get("query"):
-                query = config["query"].format(
-                    path=sub_path or str(moniker.path),
-                    moniker=str(moniker),
-                )
+                query = fmt(config["query"])
             elif config.get("table"):
-                table = config["table"].format(path=sub_path or str(moniker.path))
+                table = fmt(config["table"])
                 query = f"SELECT * FROM {table}"
 
         elif source_type == "rest":
@@ -282,21 +328,23 @@ class MonikerService:
                 "headers": config.get("headers", {}),
             }
             path_template = config.get("path_template", "/{path}")
-            query = path_template.format(
-                path=sub_path or str(moniker.path),
-                moniker=str(moniker),
-            )
+            query = fmt(path_template)
             params = {
                 "method": config.get("method", "GET"),
                 "response_path": config.get("response_path"),
             }
+            # Format query_params if present
+            if config.get("query_params"):
+                params["query_params"] = {
+                    k: fmt(v) for k, v in config["query_params"].items()
+                }
 
         elif source_type == "static":
             connection = {
                 "base_path": config.get("base_path", "."),
             }
             file_pattern = config.get("file_pattern", "{path}.json")
-            query = file_pattern.format(path=sub_path or str(moniker.path))
+            query = fmt(file_pattern)
             params = {
                 "format": config.get("format", "json"),
                 "encoding": config.get("encoding", "utf-8"),
@@ -307,7 +355,7 @@ class MonikerService:
                 "base_path": config.get("base_path", "."),
             }
             file_pattern = config.get("file_pattern", "{path}.xlsx")
-            query = file_pattern.format(path=sub_path or str(moniker.path))
+            query = fmt(file_pattern)
             params = {
                 "sheet": config.get("sheet"),
                 "header_row": config.get("header_row", 1),
@@ -319,24 +367,45 @@ class MonikerService:
                 "port": config.get("port", 8194),
                 "api_type": config.get("api_type", "blpapi"),
             }
+            securities = config.get("securities", "{path}")
             params = {
                 "fields": config.get("fields", ["PX_LAST"]),
-                "securities": config.get("securities", [sub_path or str(moniker.path)]),
+                "securities": fmt(securities) if isinstance(securities, str) else securities,
             }
 
         elif source_type == "refinitiv":
             connection = {
                 "api_type": config.get("api_type", "eikon"),
             }
+            instruments = config.get("instruments", "{path}")
             params = {
                 "fields": config.get("fields", []),
-                "instruments": config.get("instruments", [sub_path or str(moniker.path)]),
+                "instruments": fmt(instruments) if isinstance(instruments, str) else instruments,
             }
 
+        elif source_type == "opensearch":
+            connection = {
+                "hosts": config.get("hosts", []),
+                "index": config.get("index"),
+            }
+            if config.get("query"):
+                query = fmt(config["query"])
+
         else:
-            # Generic - pass through config
-            connection = {k: v for k, v in config.items() if k not in ("query", "table")}
-            query = config.get("query") or config.get("table")
+            # Generic - pass through config with template formatting
+            connection = {}
+            for k, v in config.items():
+                if k not in ("query", "table"):
+                    connection[k] = fmt(v) if isinstance(v, str) else v
+            if config.get("query"):
+                query = fmt(config["query"])
+            elif config.get("table"):
+                query = fmt(config["table"])
+
+        # Add moniker metadata to params
+        params["moniker_version"] = moniker.version
+        params["moniker_revision"] = moniker.revision
+        params["moniker_namespace"] = moniker.namespace
 
         # Add moniker query params
         if moniker.params:

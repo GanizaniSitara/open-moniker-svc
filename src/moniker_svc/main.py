@@ -103,135 +103,210 @@ _batcher_task: asyncio.Task | None = None
 
 
 def create_demo_catalog() -> CatalogRegistry:
-    """Create a demo catalog with sample source bindings."""
+    """Create a demo catalog with sample source bindings using new format."""
     registry = CatalogRegistry()
 
-    # Market data domain
+    # ==========================================================================
+    # INDICES - Benchmark indices with dot notation
+    # ==========================================================================
     registry.register(CatalogNode(
-        path="market-data",
-        display_name="Market Data",
-        description="Real-time and historical market data",
+        path="indices",
+        display_name="Market Indices",
+        description="Benchmark indices, aggregates, and composites",
         ownership=Ownership(
-            accountable_owner="jane.smith@firm.com",
-            data_specialist="market-data-team@firm.com",
-            support_channel="#market-data-support",
+            accountable_owner="indices-governance@firm.com",
+            data_specialist="quant-research@firm.com",
+            support_channel="#indices-support",
         ),
     ))
 
     registry.register(CatalogNode(
-        path="market-data/prices",
-        display_name="Prices",
-        description="Security prices from various sources",
+        path="indices.sovereign",
+        display_name="Sovereign Indices",
+        description="Government bond indices by region",
     ))
 
-    # Equity prices from Snowflake
+    # Example: indices.sovereign/developed/EU.GovBondAgg/EUR/ALL
     registry.register(CatalogNode(
-        path="market-data/prices/equity",
-        display_name="Equity Prices",
+        path="indices.sovereign/developed",
+        display_name="Developed Markets Sovereign",
         source_binding=SourceBinding(
             source_type=SourceType.SNOWFLAKE,
             config={
-                "account": "acme.us-east-1",
-                "warehouse": "COMPUTE_WH",
-                "database": "MARKET_DATA",
-                "schema": "PRICES",
-                "table": "EQUITY_PRICES",
-                "query": "SELECT symbol, price, currency, timestamp FROM EQUITY_PRICES WHERE symbol = '{path}'",
+                "account": "firm-prod.us-east-1",
+                "warehouse": "ANALYTICS_WH",
+                "database": "INDICES",
+                "schema": "SOVEREIGN",
+                "query": """SELECT index_id, currency, weight, yield, duration
+                    FROM DM_SOVEREIGN_INDICES
+                    WHERE index_family = '{segments[0]}'
+                    AND currency = '{segments[1]}'
+                    AND as_of_date = COALESCE(TO_DATE('{version}', 'YYYYMMDD'), CURRENT_DATE())""",
             },
         ),
         is_leaf=True,
     ))
 
-    # Bloomberg prices
+    # ==========================================================================
+    # COMMODITIES - Derivatives with REST API
+    # ==========================================================================
     registry.register(CatalogNode(
-        path="market-data/prices/bloomberg",
-        display_name="Bloomberg Prices",
+        path="commodities",
+        display_name="Commodities",
+        description="Commodity futures, spot prices, and derivatives",
         ownership=Ownership(
-            data_specialist="bloomberg-team@firm.com",
+            accountable_owner="commodities-desk@firm.com",
+            data_specialist="commodities-quant@firm.com",
+            support_channel="#commodities-data",
         ),
+    ))
+
+    registry.register(CatalogNode(
+        path="commodities.derivatives",
+        display_name="Commodity Derivatives",
+    ))
+
+    # Example: commodities.derivatives/energy/ALL
+    registry.register(CatalogNode(
+        path="commodities.derivatives/energy",
+        display_name="Energy Derivatives",
         source_binding=SourceBinding(
-            source_type=SourceType.BLOOMBERG,
+            source_type=SourceType.REST,
             config={
-                "host": "localhost",
-                "port": 8194,
-                "api_type": "blpapi",
-                "fields": ["PX_LAST", "PX_BID", "PX_ASK", "VOLUME"],
-                "securities": "{path} Equity",
+                "base_url": "https://market-data.internal.firm.com",
+                "path_template": "/api/v2/commodities/energy/{path}",
+                "method": "GET",
+                "auth_type": "bearer",
             },
         ),
         is_leaf=True,
     ))
 
-    # Reference data domain
+    # Example: commodities.derivatives/crypto/ETH@20260115/v2
+    registry.register(CatalogNode(
+        path="commodities.derivatives/crypto",
+        display_name="Digital Assets",
+        ownership=Ownership(data_specialist="digital-assets@firm.com"),
+        source_binding=SourceBinding(
+            source_type=SourceType.REST,
+            config={
+                "base_url": "https://crypto-data.internal.firm.com",
+                "path_template": "/api/v3/assets/{segments[0]}",
+                "method": "GET",
+                "auth_type": "api_key",
+                "query_params": {
+                    "as_of": "{version}",
+                    "schema_version": "{revision}",
+                },
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    # ==========================================================================
+    # REFERENCE - Security master with Oracle + OpenSearch
+    # ==========================================================================
     registry.register(CatalogNode(
         path="reference",
         display_name="Reference Data",
-        description="Static reference data",
+        description="Security master, calendars, and static reference",
         ownership=Ownership(
-            accountable_owner="bob.jones@firm.com",
-            data_specialist="ref-data-team@firm.com",
+            accountable_owner="ref-data-governance@firm.com",
+            data_specialist="ref-data-ops@firm.com",
             support_channel="#reference-data",
         ),
     ))
 
     registry.register(CatalogNode(
-        path="reference/calendars",
+        path="reference.security",
+        display_name="Security Master",
+    ))
+
+    # Example: verified@reference.security/ISIN/US0378331005@latest
+    registry.register(CatalogNode(
+        path="reference.security/ISIN",
+        display_name="ISIN Lookup",
+        source_binding=SourceBinding(
+            source_type=SourceType.ORACLE,
+            config={
+                "dsn": "secmaster.firm.com:1521/SECMASTER",
+                "query": """SELECT isin, cusip, sedol, ticker, issuer_name
+                    FROM SECURITY_MASTER
+                    WHERE isin = '{segments[0]}'
+                    AND effective_date = NVL(TO_DATE('{version}', 'YYYYMMDD'), TRUNC(SYSDATE))""",
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    registry.register(CatalogNode(
+        path="reference.calendars",
         display_name="Trading Calendars",
     ))
 
-    # Calendars from static JSON files
     registry.register(CatalogNode(
-        path="reference/calendars/trading",
-        display_name="Exchange Trading Calendars",
+        path="reference.calendars/exchange",
+        display_name="Exchange Calendars",
         source_binding=SourceBinding(
             source_type=SourceType.STATIC,
             config={
-                "base_path": "/data/reference/calendars",
-                "file_pattern": "{path}.json",
+                "base_path": "/data/reference/calendars/exchange",
+                "file_pattern": "{segments[0]}.json",
                 "format": "json",
             },
         ),
         is_leaf=True,
     ))
 
-    # Instruments from Oracle
+    # ==========================================================================
+    # INSTRUMENTS - OpenSearch
+    # ==========================================================================
     registry.register(CatalogNode(
-        path="reference/instruments",
-        display_name="Financial Instruments",
+        path="instruments",
+        display_name="Instrument Details",
         ownership=Ownership(
-            data_specialist="instruments-team@firm.com",
+            accountable_owner="ref-data-governance@firm.com",
+            data_specialist="security-ops@firm.com",
+            support_channel="#instruments",
         ),
     ))
 
+    # Example: instruments/US0378331005/metadata
     registry.register(CatalogNode(
-        path="reference/instruments/equity",
-        display_name="Equity Instruments",
+        path="instruments/metadata",
+        display_name="Instrument Metadata",
         source_binding=SourceBinding(
-            source_type=SourceType.ORACLE,
+            source_type=SourceType.OPENSEARCH,
             config={
-                "dsn": "refdata.firm.com:1521/REFDATA",
-                "table": "EQUITY_INSTRUMENTS",
-                "query": "SELECT * FROM EQUITY_INSTRUMENTS WHERE symbol = '{path}'",
+                "hosts": ["https://search.internal.firm.com:9200"],
+                "index": "instruments-v2",
+                "query": '{"query":{"term":{"security_id":"{segments[0]}"}}}',
             },
         ),
         is_leaf=True,
     ))
 
-    # Risk data from REST API
+    # ==========================================================================
+    # ANALYTICS - Risk with user views
+    # ==========================================================================
     registry.register(CatalogNode(
-        path="risk",
-        display_name="Risk Data",
-        description="Risk analytics and positions",
+        path="analytics",
+        display_name="Analytics",
         ownership=Ownership(
-            accountable_owner="sarah.chen@firm.com",
-            data_specialist="risk-tech@firm.com",
-            support_channel="#risk-support",
+            accountable_owner="risk-governance@firm.com",
+            data_specialist="quant-analytics@firm.com",
+            support_channel="#analytics-support",
         ),
         classification="confidential",
     ))
 
     registry.register(CatalogNode(
-        path="risk/var",
+        path="analytics.risk",
+        display_name="Risk Analytics",
+    ))
+
+    registry.register(CatalogNode(
+        path="analytics.risk/var",
         display_name="Value at Risk",
         source_binding=SourceBinding(
             source_type=SourceType.REST,
@@ -240,6 +315,120 @@ def create_demo_catalog() -> CatalogRegistry:
                 "path_template": "/api/v2/var/{path}",
                 "method": "GET",
                 "auth_type": "bearer",
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    # Example: user@analytics.risk/views/my-watchlist@20260115/v3
+    registry.register(CatalogNode(
+        path="analytics.risk/views",
+        display_name="User Risk Views",
+        source_binding=SourceBinding(
+            source_type=SourceType.REST,
+            config={
+                "base_url": "https://risk-engine.internal.firm.com",
+                "path_template": "/api/v2/views/{namespace}/{segments[0]}",
+                "method": "GET",
+                "auth_type": "bearer",
+                "query_params": {
+                    "as_of": "{version}",
+                    "version": "{revision}",
+                },
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    # ==========================================================================
+    # HOLDINGS - Positions by date
+    # ==========================================================================
+    registry.register(CatalogNode(
+        path="holdings",
+        display_name="Holdings & Positions",
+        ownership=Ownership(
+            accountable_owner="portfolio-ops@firm.com",
+            data_specialist="position-management@firm.com",
+            support_channel="#positions",
+        ),
+        classification="confidential",
+    ))
+
+    # Example: holdings/20260115/fund_alpha
+    registry.register(CatalogNode(
+        path="holdings/positions",
+        display_name="Position Data",
+        source_binding=SourceBinding(
+            source_type=SourceType.SNOWFLAKE,
+            config={
+                "account": "firm-prod.us-east-1",
+                "warehouse": "POSITIONS_WH",
+                "database": "HOLDINGS",
+                "schema": "POSITIONS",
+                "query": """SELECT portfolio_id, security_id, quantity, market_value
+                    FROM DAILY_POSITIONS
+                    WHERE as_of_date = TO_DATE('{segments[0]}', 'YYYYMMDD')
+                    AND portfolio_id = '{segments[1]}'""",
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    # ==========================================================================
+    # PRICES - Equity prices
+    # ==========================================================================
+    registry.register(CatalogNode(
+        path="prices",
+        display_name="Market Prices",
+        ownership=Ownership(
+            accountable_owner="market-data-governance@firm.com",
+            data_specialist="market-data-ops@firm.com",
+            support_channel="#market-data",
+        ),
+    ))
+
+    registry.register(CatalogNode(
+        path="prices.equity",
+        display_name="Equity Prices",
+        source_binding=SourceBinding(
+            source_type=SourceType.SNOWFLAKE,
+            config={
+                "account": "firm-prod.us-east-1",
+                "warehouse": "MARKET_DATA_WH",
+                "database": "PRICES",
+                "schema": "EQUITY",
+                "query": """SELECT symbol, open_price, high_price, low_price, close_price, volume
+                    FROM EQUITY_EOD
+                    WHERE symbol = '{segments[0]}'
+                    AND trade_date = COALESCE(TO_DATE('{version}', 'YYYYMMDD'), CURRENT_DATE())""",
+            },
+        ),
+        is_leaf=True,
+    ))
+
+    # ==========================================================================
+    # REPORTS - Excel files
+    # ==========================================================================
+    registry.register(CatalogNode(
+        path="reports",
+        display_name="Reports",
+        ownership=Ownership(
+            accountable_owner="reporting-ops@firm.com",
+            data_specialist="report-dev@firm.com",
+            support_channel="#reporting",
+        ),
+    ))
+
+    registry.register(CatalogNode(
+        path="reports/regulatory",
+        display_name="Regulatory Reports",
+        classification="restricted",
+        source_binding=SourceBinding(
+            source_type=SourceType.EXCEL,
+            config={
+                "base_path": "/data/reports/regulatory",
+                "file_pattern": "{segments[0]}/{segments[1]}.xlsx",
+                "sheet": "Summary",
             },
         ),
         is_leaf=True,

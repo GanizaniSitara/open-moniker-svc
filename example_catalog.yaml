@@ -1,170 +1,430 @@
-# Example Catalog Definition
-# This file shows how to define your data hierarchy with ownership and source bindings
+# Moniker Catalog Definition
+#
+# Format: [namespace@]domain.subdomain/path/segments[@version][/vN]
+#
+# Each entry defines:
+#   - ownership: Accountable owner, data specialist, support channel
+#   - source_binding: How to fetch data (snowflake, oracle, rest, static, excel, opensearch, etc.)
+#
+# Ownership inherits down the hierarchy. Source bindings define leaf nodes.
+#
+# Query templates support placeholders:
+#   {path}         - Full sub-path after the binding
+#   {segments[N]}  - Specific path segment (0-indexed)
+#   {version}      - Version from @suffix (e.g., @20260115, @latest)
+#   {revision}     - Revision from /vN suffix
+#   {namespace}    - Namespace prefix if provided
 
-# Domain: Market Data
-market-data:
-  display_name: Market Data
-  description: Real-time and historical market data
+
+# =============================================================================
+# INDICES - Benchmark indices and aggregates
+# =============================================================================
+
+indices:
+  display_name: Market Indices
+  description: Benchmark indices, aggregates, and composites
   ownership:
-    accountable_owner: jane.smith@firm.com
-    data_specialist: market-data-team@firm.com
-    support_channel: "#market-data-support"
+    accountable_owner: indices-governance@firm.com
+    data_specialist: quant-research@firm.com
+    support_channel: "#indices-support"
 
-market-data/prices:
-  display_name: Security Prices
-  description: Price data from various sources
+indices.sovereign:
+  display_name: Sovereign Indices
+  description: Government bond indices by region and currency
 
-market-data/prices/equity:
-  display_name: Equity Prices
-  description: Equity security prices
+# Example: indices.sovereign/developed/EU.GovBondAgg/EUR/ALL
+indices.sovereign/developed:
+  display_name: Developed Markets Sovereign
+  description: DM government bond benchmarks
   source_binding:
     type: snowflake
     config:
-      account: your-account.snowflakecomputing.com
-      warehouse: COMPUTE_WH
-      database: MARKET_DATA
-      schema: PRICES
-      table: EQUITY_PRICES
+      account: firm-prod.us-east-1
+      warehouse: ANALYTICS_WH
+      database: INDICES
+      schema: SOVEREIGN
       query: |
-        SELECT symbol, price, currency, timestamp
-        FROM EQUITY_PRICES
-        WHERE symbol = '{path}'
+        SELECT index_id, index_name, currency, weight, yield, duration, mod_duration
+        FROM DM_SOVEREIGN_INDICES
+        WHERE index_family = '{segments[0]}'
+          AND currency = '{segments[1]}'
+          AND as_of_date = COALESCE(TO_DATE('{version}', 'YYYYMMDD'), CURRENT_DATE())
 
-market-data/prices/equity/bloomberg:
-  display_name: Bloomberg Equity Prices
-  description: Real-time equity prices from Bloomberg
+indices.corporate:
+  display_name: Corporate Indices
+  description: Investment grade and high yield corporate bond indices
   ownership:
-    data_specialist: bloomberg-team@firm.com
-  source_binding:
-    type: bloomberg
-    config:
-      api_type: blpapi
-      fields: [PX_LAST, PX_BID, PX_ASK, VOLUME]
-      securities: "{path} Equity"
+    data_specialist: credit-research@firm.com
 
-market-data/prices/fx:
-  display_name: FX Prices
-  description: Foreign exchange rates
+indices.corporate/ig:
+  display_name: Investment Grade Corporate
+  source_binding:
+    type: snowflake
+    config:
+      account: firm-prod.us-east-1
+      warehouse: ANALYTICS_WH
+      database: INDICES
+      schema: CORPORATE
+      query: |
+        SELECT index_id, sector, rating_bucket, spread, oas, duration
+        FROM IG_CORPORATE_INDICES
+        WHERE sector = '{segments[0]}'
+
+
+# =============================================================================
+# COMMODITIES - Futures, spot, and derivatives
+# =============================================================================
+
+commodities:
+  display_name: Commodities
+  description: Commodity futures, spot prices, and derivatives
+  ownership:
+    accountable_owner: commodities-desk@firm.com
+    data_specialist: commodities-quant@firm.com
+    support_channel: "#commodities-data"
+
+commodities.derivatives:
+  display_name: Commodity Derivatives
+  description: Futures and options on commodities
+
+# Example: commodities.derivatives/energy/ALL
+commodities.derivatives/energy:
+  display_name: Energy Derivatives
+  description: Crude, natural gas, power futures
   source_binding:
     type: rest
     config:
-      base_url: https://api.exchangerate.example.com
-      path_template: /v1/rates/{path}
+      base_url: https://market-data.internal.firm.com
+      path_template: /api/v2/commodities/energy/{path}
+      method: GET
+      auth_type: bearer
       headers:
         Accept: application/json
+      response_format: json
 
-# Domain: Reference Data
+commodities.derivatives/metals:
+  display_name: Precious Metals
+  source_binding:
+    type: rest
+    config:
+      base_url: https://market-data.internal.firm.com
+      path_template: /api/v2/commodities/metals/{path}
+      method: GET
+      auth_type: bearer
+
+# Example: commodities.derivatives/crypto/ETH@20260115/v2
+commodities.derivatives/crypto:
+  display_name: Digital Assets
+  description: Cryptocurrency spot and derivatives
+  ownership:
+    data_specialist: digital-assets@firm.com
+  source_binding:
+    type: rest
+    config:
+      base_url: https://crypto-data.internal.firm.com
+      path_template: /api/v3/assets/{segments[0]}
+      method: GET
+      auth_type: api_key
+      # Supports versioning: @20260115 becomes as_of query param
+      query_params:
+        as_of: "{version}"
+        schema_version: "{revision}"
+
+
+# =============================================================================
+# REFERENCE - Security master, calendars, static data
+# =============================================================================
+
 reference:
   display_name: Reference Data
-  description: Static reference data for securities and entities
+  description: Security master, calendars, and static reference data
   ownership:
-    accountable_owner: bob.jones@firm.com
-    data_specialist: ref-data-team@firm.com
+    accountable_owner: ref-data-governance@firm.com
+    data_specialist: ref-data-ops@firm.com
     support_channel: "#reference-data"
+  classification: internal
 
-reference/instruments:
-  display_name: Financial Instruments
-  description: Master instrument data
+reference.security:
+  display_name: Security Master
+  description: Canonical security identifiers and attributes
 
-reference/instruments/equity:
-  display_name: Equity Instruments
+# Example: verified@reference.security/ISIN/US0378331005@latest
+# The "verified" namespace indicates official/golden source
+reference.security/ISIN:
+  display_name: ISIN Lookup
+  description: International Securities Identification Numbers
   source_binding:
     type: oracle
     config:
-      dsn: refdata.firm.com:1521/REFDATA
-      table: EQUITY_INSTRUMENTS
+      dsn: secmaster.firm.com:1521/SECMASTER
       query: |
-        SELECT * FROM EQUITY_INSTRUMENTS
-        WHERE symbol = '{path}'
+        SELECT isin, cusip, sedol, ticker, issuer_name,
+               country_code, currency, security_type, active_flag
+        FROM SECURITY_MASTER
+        WHERE isin = '{segments[0]}'
+          AND effective_date = NVL(TO_DATE('{version}', 'YYYYMMDD'), TRUNC(SYSDATE))
 
-reference/instruments/fixed-income:
-  display_name: Fixed Income Instruments
-  ownership:
-    data_specialist: fi-data-team@firm.com
+reference.security/CUSIP:
+  display_name: CUSIP Lookup
   source_binding:
-    type: snowflake
+    type: oracle
     config:
-      database: REFERENCE_DATA
-      schema: INSTRUMENTS
-      table: FIXED_INCOME
+      dsn: secmaster.firm.com:1521/SECMASTER
+      query: |
+        SELECT isin, cusip, sedol, ticker, issuer_name,
+               country_code, currency, security_type, active_flag
+        FROM SECURITY_MASTER
+        WHERE cusip = '{segments[0]}'
 
-reference/calendars:
+reference.security/SEDOL:
+  display_name: SEDOL Lookup
+  source_binding:
+    type: oracle
+    config:
+      dsn: secmaster.firm.com:1521/SECMASTER
+      query: |
+        SELECT isin, cusip, sedol, ticker, issuer_name,
+               country_code, currency, security_type, active_flag
+        FROM SECURITY_MASTER
+        WHERE sedol = '{segments[0]}'
+
+reference.calendars:
   display_name: Trading Calendars
-  description: Exchange trading calendars and holidays
+  description: Exchange and settlement calendars
 
-reference/calendars/trading:
-  display_name: Exchange Trading Hours
+reference.calendars/exchange:
+  display_name: Exchange Calendars
   source_binding:
     type: static
     config:
-      base_path: /data/calendars
-      file_pattern: "{path}.json"
+      base_path: /data/reference/calendars/exchange
+      file_pattern: "{segments[0]}.json"
+      format: json
 
-# Domain: Risk
-risk:
-  display_name: Risk Data
-  description: Risk analytics and positions
+reference.calendars/settlement:
+  display_name: Settlement Calendars
+  source_binding:
+    type: static
+    config:
+      base_path: /data/reference/calendars/settlement
+      file_pattern: "{segments[0]}.csv"
+      format: csv
+
+
+# =============================================================================
+# INSTRUMENTS - Detailed security attributes
+# =============================================================================
+
+instruments:
+  display_name: Instrument Details
+  description: Detailed security attributes and terms
   ownership:
-    accountable_owner: sarah.chen@firm.com
-    data_specialist: risk-tech@firm.com
-    support_channel: "#risk-support"
+    accountable_owner: ref-data-governance@firm.com
+    data_specialist: security-ops@firm.com
+    support_channel: "#instruments"
+
+# Example: instruments/US0378331005/metadata
+instruments/metadata:
+  display_name: Instrument Metadata
+  description: Security terms, attributes, and classifications
+  source_binding:
+    type: opensearch
+    config:
+      hosts:
+        - https://search.internal.firm.com:9200
+      index: instruments-v2
+      query: |
+        {
+          "query": {
+            "bool": {
+              "must": [
+                {"term": {"security_id": "{segments[0]}"}}
+              ]
+            }
+          }
+        }
+
+
+# =============================================================================
+# ANALYTICS - Risk, attribution, and calculated metrics
+# =============================================================================
+
+analytics:
+  display_name: Analytics
+  description: Risk metrics, attribution, and calculated analytics
+  ownership:
+    accountable_owner: risk-governance@firm.com
+    data_specialist: quant-analytics@firm.com
+    support_channel: "#analytics-support"
   classification: confidential
 
-risk/positions:
-  display_name: Risk Positions
-  source_binding:
-    type: snowflake
-    config:
-      database: RISK
-      schema: POSITIONS
-      table: DAILY_POSITIONS
+analytics.risk:
+  display_name: Risk Analytics
+  description: VaR, stress tests, sensitivities
 
-risk/var:
+analytics.risk/var:
   display_name: Value at Risk
-  description: VaR calculations by desk
-  ownership:
-    data_specialist: quant-team@firm.com
   source_binding:
     type: rest
     config:
       base_url: https://risk-engine.internal.firm.com
       path_template: /api/v2/var/{path}
+      method: GET
       auth_type: bearer
-      auth_config:
-        token: ${RISK_API_TOKEN}
 
-# Domain: Client Data
-client-data:
-  display_name: Client Data
-  description: Client and account information
-  ownership:
-    accountable_owner: mike.wilson@firm.com
-    data_specialist: client-ops@firm.com
-    support_channel: "#client-data"
-  classification: restricted
-
-client-data/accounts:
-  display_name: Client Accounts
+analytics.risk/stress:
+  display_name: Stress Testing
   source_binding:
-    type: oracle
+    type: rest
     config:
-      dsn: clientdb.firm.com:1521/CLIENTS
-      table: ACCOUNTS
+      base_url: https://risk-engine.internal.firm.com
+      path_template: /api/v2/stress/{path}
+      method: GET
+      auth_type: bearer
 
-# Domain: Reports (Excel-based)
+# Example: user@analytics.risk/views/my-watchlist@20260115/v3
+# User-scoped views require namespace prefix
+analytics.risk/views:
+  display_name: User Risk Views
+  description: Saved user views and filters (namespace required)
+  source_binding:
+    type: rest
+    config:
+      base_url: https://risk-engine.internal.firm.com
+      path_template: /api/v2/views/{namespace}/{segments[0]}
+      method: GET
+      auth_type: bearer
+      query_params:
+        as_of: "{version}"
+        version: "{revision}"
+
+
+# =============================================================================
+# HOLDINGS - Portfolio positions and exposures
+# =============================================================================
+
+holdings:
+  display_name: Holdings & Positions
+  description: Portfolio positions, exposures, and allocations
+  ownership:
+    accountable_owner: portfolio-ops@firm.com
+    data_specialist: position-management@firm.com
+    support_channel: "#positions"
+  classification: confidential
+
+# Example: holdings/20260115/fund_alpha
+holdings/positions:
+  display_name: Position Data
+  description: End of day positions by date and portfolio
+  source_binding:
+    type: snowflake
+    config:
+      account: firm-prod.us-east-1
+      warehouse: POSITIONS_WH
+      database: HOLDINGS
+      schema: POSITIONS
+      query: |
+        SELECT portfolio_id, security_id, quantity, market_value,
+               cost_basis, unrealized_pnl, currency
+        FROM DAILY_POSITIONS
+        WHERE as_of_date = TO_DATE('{segments[0]}', 'YYYYMMDD')
+          AND portfolio_id = '{segments[1]}'
+
+holdings/exposures:
+  display_name: Exposure Analysis
+  source_binding:
+    type: snowflake
+    config:
+      account: firm-prod.us-east-1
+      warehouse: ANALYTICS_WH
+      database: HOLDINGS
+      schema: ANALYTICS
+      query: |
+        SELECT portfolio_id, dimension, bucket, exposure_pct, notional
+        FROM EXPOSURE_BREAKDOWN
+        WHERE as_of_date = TO_DATE('{segments[0]}', 'YYYYMMDD')
+          AND portfolio_id = '{segments[1]}'
+
+
+# =============================================================================
+# REPORTS - Generated reports and exports
+# =============================================================================
+
 reports:
   display_name: Reports
-  description: Business reports and analytics
+  description: Generated reports, exports, and documents
   ownership:
-    accountable_owner: finance-head@firm.com
-    data_specialist: reporting-team@firm.com
+    accountable_owner: reporting-ops@firm.com
+    data_specialist: report-dev@firm.com
     support_channel: "#reporting"
 
 reports/daily:
   display_name: Daily Reports
   source_binding:
+    type: static
+    config:
+      base_path: /data/reports/daily
+      file_pattern: "{segments[0]}/{segments[1]}.pdf"
+      format: binary
+
+reports/regulatory:
+  display_name: Regulatory Reports
+  classification: restricted
+  source_binding:
     type: excel
     config:
-      base_path: //fileserver/reports/daily
-      file_pattern: "{path}.xlsx"
-      sheet: Data
+      base_path: /data/reports/regulatory
+      file_pattern: "{segments[0]}/{segments[1]}.xlsx"
+      sheet: Summary
+
+
+# =============================================================================
+# PRICES - Real-time and historical prices
+# =============================================================================
+
+prices:
+  display_name: Market Prices
+  description: Real-time and historical security prices
+  ownership:
+    accountable_owner: market-data-governance@firm.com
+    data_specialist: market-data-ops@firm.com
+    support_channel: "#market-data"
+
+prices.equity:
+  display_name: Equity Prices
+  source_binding:
+    type: snowflake
+    config:
+      account: firm-prod.us-east-1
+      warehouse: MARKET_DATA_WH
+      database: PRICES
+      schema: EQUITY
+      query: |
+        SELECT symbol, open_price, high_price, low_price, close_price, volume, vwap
+        FROM EQUITY_EOD
+        WHERE symbol = '{segments[0]}'
+          AND trade_date = COALESCE(TO_DATE('{version}', 'YYYYMMDD'), CURRENT_DATE())
+
+prices.fx:
+  display_name: FX Rates
+  source_binding:
+    type: rest
+    config:
+      base_url: https://fx-service.internal.firm.com
+      path_template: /api/v1/rates/{segments[0]}/{segments[1]}
+      method: GET
+      auth_type: bearer
+
+prices.fixed-income:
+  display_name: Fixed Income Prices
+  source_binding:
+    type: snowflake
+    config:
+      account: firm-prod.us-east-1
+      warehouse: MARKET_DATA_WH
+      database: PRICES
+      schema: FIXED_INCOME
+      query: |
+        SELECT security_id, bid_price, ask_price, mid_price, yield_to_maturity, spread
+        FROM BOND_PRICES
+        WHERE security_id = '{segments[0]}'

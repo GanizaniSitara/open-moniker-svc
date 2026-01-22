@@ -16,6 +16,7 @@ class SourceType(str, Enum):
     EXCEL = "excel"
     BLOOMBERG = "bloomberg"
     REFINITIV = "refinitiv"
+    OPENSEARCH = "opensearch"  # OpenSearch/Elasticsearch
     # Synthetic/computed sources
     COMPOSITE = "composite"  # Combines multiple sources
     DERIVED = "derived"      # Computed from other monikers

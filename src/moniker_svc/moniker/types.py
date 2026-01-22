@@ -11,10 +11,14 @@ class MonikerPath:
     """
     A hierarchical path to a data asset.
 
+    Supports dots within segments for sub-categorization:
+        indices.sovereign/developed/EU.GovBondIndex
+        commodities.derivatives/energy/crude
+
     Examples:
-        market-data/prices/equity/AAPL
-        static-data/instruments/equity
-        reference/calendars/trading/NYSE
+        indices.sovereign/developed/EUR/ALL
+        reference.security/ISIN/US0378331005
+        holdings/20260115/fund_alpha
     """
     segments: tuple[str, ...]
 
@@ -29,7 +33,7 @@ class MonikerPath:
 
     @property
     def domain(self) -> str | None:
-        """First segment - the data domain (e.g., market-data, static-data)."""
+        """First segment - the data domain (e.g., indices.sovereign, reference)."""
         return self.segments[0] if self.segments else None
 
     @property
@@ -94,45 +98,114 @@ class QueryParams:
     def __bool__(self) -> bool:
         return bool(self.params)
 
-    @property
-    def version(self) -> str | None:
-        """Shortcut for version parameter."""
-        return self.params.get("version")
-
-    @property
-    def as_of(self) -> str | None:
-        """Shortcut for as_of (point-in-time) parameter."""
-        return self.params.get("as_of")
-
 
 @dataclass(frozen=True, slots=True)
 class Moniker:
     """
-    A complete moniker reference.
+    A complete moniker reference with optional namespace, version, and revision.
 
-    Format: moniker://{path}[?{params}]
+    Format: [namespace@]path/segments[@version][/vN][?query=params]
+
+    Components:
+        namespace: Access scope (e.g., "official", "user", "trading-desk")
+        path: Hierarchical path with dot-notation support
+        version: Point-in-time reference (date like "20260115" or "latest")
+        revision: Schema/format revision (integer, e.g., 2 for /v2)
+        params: Additional query parameters
 
     Examples:
-        moniker://market-data/prices/equity/AAPL
-        moniker://market-data/prices/equity/AAPL?version=latest
-        moniker://reference/calendars/trading/NYSE?as_of=2024-01-15
+        indices.sovereign/developed/EUR/ALL
+        commodities.derivatives/crypto/ETH@20260115/v2
+        verified@reference.security/ISIN/US0378331005@latest
+        user@analytics.risk/views/my-watchlist@20260115/v3
+        holdings/20260115/fund_alpha?format=json
     """
     path: MonikerPath
+    namespace: str | None = None
+    version: str | None = None  # @latest, @20260115, etc.
+    revision: int | None = None  # /v2 -> 2
     params: QueryParams = field(default_factory=lambda: QueryParams({}))
 
     def __str__(self) -> str:
-        base = f"moniker://{self.path}"
+        parts = []
+
+        # Namespace prefix
+        if self.namespace:
+            parts.append(f"{self.namespace}@")
+
+        # Path
+        parts.append(str(self.path))
+
+        # Version suffix
+        if self.version:
+            parts.append(f"@{self.version}")
+
+        # Revision suffix
+        if self.revision is not None:
+            parts.append(f"/v{self.revision}")
+
+        base = "".join(parts)
+
+        # Query params
         if self.params:
             param_str = "&".join(f"{k}={v}" for k, v in self.params.params.items())
-            return f"{base}?{param_str}"
-        return base
+            return f"moniker://{base}?{param_str}"
+
+        return f"moniker://{base}"
 
     @property
     def domain(self) -> str | None:
-        """The data domain."""
+        """The data domain (first path segment)."""
         return self.path.domain
 
     @property
     def canonical_path(self) -> str:
-        """The path as a string (without scheme or params)."""
+        """The path as a string (without namespace, version, or params)."""
         return str(self.path)
+
+    @property
+    def full_path(self) -> str:
+        """Path including version and revision but not namespace."""
+        parts = [str(self.path)]
+        if self.version:
+            parts.append(f"@{self.version}")
+        if self.revision is not None:
+            parts.append(f"/v{self.revision}")
+        return "".join(parts)
+
+    @property
+    def is_versioned(self) -> bool:
+        """Whether this moniker has a version specifier."""
+        return self.version is not None
+
+    @property
+    def is_latest(self) -> bool:
+        """Whether this moniker explicitly requests latest version."""
+        return self.version == "latest"
+
+    @property
+    def version_date(self) -> str | None:
+        """Extract date from version if it's a date format (YYYYMMDD)."""
+        if self.version and self.version.isdigit() and len(self.version) == 8:
+            return self.version
+        return None
+
+    def with_version(self, version: str) -> Moniker:
+        """Create a copy with a different version."""
+        return Moniker(
+            path=self.path,
+            namespace=self.namespace,
+            version=version,
+            revision=self.revision,
+            params=self.params,
+        )
+
+    def with_namespace(self, namespace: str | None) -> Moniker:
+        """Create a copy with a different namespace."""
+        return Moniker(
+            path=self.path,
+            namespace=namespace,
+            version=self.version,
+            revision=self.revision,
+            params=self.params,
+        )
