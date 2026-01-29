@@ -1,15 +1,23 @@
 """FastAPI application - Moniker Resolution Service.
 
 This service RESOLVES monikers to source connection info.
-It does NOT fetch data - clients use the returned info to connect directly.
+It also provides /fetch for server-side query execution.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any
+
+# Add external packages path if running from repo
+_REPO_ROOT = Path(__file__).parent.parent.parent
+_EXTERNAL_DATA = _REPO_ROOT / "external" / "moniker-data" / "src"
+if _EXTERNAL_DATA.exists() and str(_EXTERNAL_DATA) not in sys.path:
+    sys.path.insert(0, str(_EXTERNAL_DATA))
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Query
 from fastapi.responses import JSONResponse
@@ -106,6 +114,65 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str | None = None
+
+
+class FetchResponse(BaseModel):
+    """Response from /fetch - returns actual data from source."""
+    moniker: str
+    path: str
+    source_type: str
+    row_count: int
+    columns: list[str]
+    data: list[dict[str, Any]]
+    truncated: bool = False
+    query_executed: str | None = None
+    execution_time_ms: float | None = None
+
+
+class MetadataResponse(BaseModel):
+    """Rich metadata for AI/agent discoverability."""
+    moniker: str
+    path: str
+    display_name: str | None = None
+    description: str | None = None
+
+    # Data characteristics
+    data_profile: dict[str, Any] | None = None  # row count, cardinality, size estimates
+
+    # Temporal coverage
+    temporal_coverage: dict[str, Any] | None = None  # min/max dates, freshness
+
+    # Relationship graph
+    relationships: dict[str, Any] | None = None  # upstream, downstream, joins
+
+    # Sample data for understanding
+    sample_data: list[dict[str, Any]] | None = None
+
+    # Schema and semantics
+    schema: dict[str, Any] | None = None
+    semantic_tags: list[str] = []
+
+    # Quality and governance
+    data_quality: dict[str, Any] | None = None
+    ownership: dict[str, Any] | None = None
+    documentation: dict[str, Any] | None = None
+
+    # Query guidance for AI
+    query_patterns: dict[str, Any] | None = None  # common filters, suggested queries
+    cost_indicators: dict[str, Any] | None = None  # estimated cost, latency
+
+    # Natural language
+    nl_description: str | None = None  # What questions can this data answer?
+    use_cases: list[str] = []
+
+
+class SampleDataResponse(BaseModel):
+    """Response from /sample - returns sample rows."""
+    moniker: str
+    path: str
+    row_count: int
+    columns: list[str]
+    data: list[dict[str, Any]]
 
 
 # Global service instance (initialized in lifespan)
@@ -872,21 +939,325 @@ async def list_catalog():
     return {"paths": sorted(paths)}
 
 
+# =============================================================================
+# DATA FETCH ENDPOINTS - Server-side query execution
+# =============================================================================
+
+@app.get("/fetch/{path:path}", response_model=FetchResponse)
+async def fetch_data(
+    path: str,
+    caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
+    limit: int = Query(default=100, le=10000, description="Max rows to return"),
+):
+    """
+    Fetch actual data by executing the query server-side.
+
+    Unlike /resolve which returns connection info for client-side execution,
+    this endpoint executes the query and returns the data directly.
+
+    Use this for:
+    - Small datasets where direct fetch is convenient
+    - AI agents that need data without managing connections
+    - Demos and exploration
+
+    For large datasets, use /resolve and execute client-side.
+    """
+    import time
+    if not _service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    moniker_str = f"moniker://{path}"
+    start_time = time.time()
+
+    # First resolve the moniker
+    result = await _service.resolve(moniker_str, caller)
+
+    # Execute the query using appropriate mock adapter
+    # In production, this would use real adapters
+    data = []
+    columns = []
+
+    try:
+        if result.source.source_type == "oracle":
+            from moniker_data.adapters.oracle import execute_query
+            data = execute_query(result.source.query)
+        elif result.source.source_type == "snowflake":
+            from moniker_data.adapters.snowflake import MockSnowflakeAdapter
+            adapter = MockSnowflakeAdapter()
+            data = adapter.execute(result.source.query)
+        elif result.source.source_type == "rest":
+            from moniker_data.adapters.rest import MockRestAdapter
+            adapter = MockRestAdapter()
+            data = adapter.fetch(result.source.query or result.sub_path or "")
+        elif result.source.source_type == "excel":
+            from moniker_data.adapters.excel import MockExcelAdapter
+            adapter = MockExcelAdapter()
+            data = adapter.fetch(result.source.query or "")
+        else:
+            raise HTTPException(
+                status_code=501,
+                detail=f"Fetch not implemented for source type: {result.source.source_type}"
+            )
+    except ImportError:
+        raise HTTPException(
+            status_code=501,
+            detail="Mock adapters not available. Install moniker-data package."
+        )
+
+    # Apply limit and track truncation
+    truncated = len(data) > limit
+    data = data[:limit]
+
+    # Extract columns from first row
+    if data:
+        columns = list(data[0].keys())
+
+    execution_time = (time.time() - start_time) * 1000
+
+    return FetchResponse(
+        moniker=moniker_str,
+        path=result.path,
+        source_type=result.source.source_type,
+        row_count=len(data),
+        columns=columns,
+        data=data,
+        truncated=truncated,
+        query_executed=result.source.query,
+        execution_time_ms=round(execution_time, 2),
+    )
+
+
+@app.get("/metadata/{path:path}", response_model=MetadataResponse)
+async def get_metadata(
+    path: str,
+    caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
+    include_sample: bool = Query(default=False, description="Include sample data"),
+    sample_size: int = Query(default=5, le=100, description="Number of sample rows"),
+):
+    """
+    Get rich metadata for AI/agent discoverability.
+
+    Returns comprehensive information about a data source including:
+    - Data profile (row counts, cardinality estimates)
+    - Temporal coverage (date ranges, freshness)
+    - Relationships (upstream/downstream dependencies)
+    - Schema with semantic annotations
+    - Query patterns and cost indicators
+    - Sample data (optional)
+    - Natural language descriptions for AI understanding
+
+    This endpoint is optimized for machine discovery and AI agents.
+    """
+    if not _service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    moniker_str = f"moniker://{path}"
+
+    # Get describe info
+    describe_result = await _service.describe(moniker_str, caller)
+    node = describe_result.node
+
+    # Build data profile from access policy cardinality info
+    data_profile = None
+    if node and node.access_policy:
+        ap = node.access_policy
+        data_profile = {
+            "estimated_total_rows": ap.base_row_count * (
+                ap.cardinality_multipliers[0] if ap.cardinality_multipliers else 1
+            ) * (
+                ap.cardinality_multipliers[1] if len(ap.cardinality_multipliers) > 1 else 1
+            ) * (
+                ap.cardinality_multipliers[2] if len(ap.cardinality_multipliers) > 2 else 1
+            ),
+            "base_row_count": ap.base_row_count,
+            "cardinality_by_dimension": list(ap.cardinality_multipliers) if ap.cardinality_multipliers else [],
+            "max_rows_warn": ap.max_rows_warn,
+            "max_rows_block": ap.max_rows_block,
+        }
+
+    # Build temporal coverage from freshness info
+    temporal_coverage = None
+    if node and node.freshness:
+        f = node.freshness
+        temporal_coverage = {
+            "last_loaded": f.last_loaded,
+            "refresh_schedule": f.refresh_schedule,
+            "source_system": f.source_system,
+            "upstream_dependencies": list(f.upstream_dependencies) if f.upstream_dependencies else [],
+        }
+
+    # Build relationships from schema related_monikers
+    relationships = None
+    if node and node.data_schema:
+        ds = node.data_schema
+        relationships = {
+            "related_monikers": list(ds.related_monikers) if ds.related_monikers else [],
+            "upstream_dependencies": list(node.freshness.upstream_dependencies) if node.freshness and node.freshness.upstream_dependencies else [],
+            "foreign_keys": [
+                {"column": col.name, "references": col.foreign_key}
+                for col in ds.columns if col.foreign_key
+            ] if ds.columns else [],
+        }
+
+    # Build schema info
+    schema = None
+    semantic_tags = []
+    use_cases = []
+    nl_description = None
+
+    if node and node.data_schema:
+        ds = node.data_schema
+        semantic_tags = list(ds.semantic_tags) if ds.semantic_tags else []
+        use_cases = list(ds.use_cases) if ds.use_cases else []
+        nl_description = ds.description
+
+        schema = {
+            "description": ds.description,
+            "granularity": ds.granularity,
+            "typical_row_count": ds.typical_row_count,
+            "update_frequency": ds.update_frequency,
+            "primary_key": list(ds.primary_key) if ds.primary_key else [],
+            "columns": [
+                {
+                    "name": col.name,
+                    "type": col.data_type,
+                    "description": col.description,
+                    "semantic_type": col.semantic_type,
+                    "example": col.example,
+                    "nullable": col.nullable,
+                    "primary_key": col.primary_key,
+                    "foreign_key": col.foreign_key,
+                }
+                for col in ds.columns
+            ] if ds.columns else [],
+            "examples": list(ds.examples) if ds.examples else [],
+        }
+
+    # Build query patterns / cost indicators
+    query_patterns = None
+    cost_indicators = None
+    if node and node.access_policy:
+        ap = node.access_policy
+        query_patterns = {
+            "blocked_patterns": list(ap.blocked_patterns) if ap.blocked_patterns else [],
+            "min_filters_required": ap.min_filters,
+            "suggested_queries": list(node.data_schema.examples) if node.data_schema and node.data_schema.examples else [],
+        }
+        cost_indicators = {
+            "query_complexity": "high" if ap.max_rows_block and ap.max_rows_block > 100_000_000 else "medium" if ap.max_rows_warn else "low",
+            "estimated_latency": "high" if data_profile and data_profile.get("estimated_total_rows", 0) > 1_000_000_000 else "medium" if data_profile and data_profile.get("estimated_total_rows", 0) > 1_000_000 else "low",
+        }
+
+    # Build data quality info
+    data_quality = None
+    if node and node.data_quality:
+        dq = node.data_quality
+        data_quality = {
+            "quality_score": dq.quality_score,
+            "dq_owner": dq.dq_owner,
+            "validation_rules": list(dq.validation_rules) if dq.validation_rules else [],
+            "known_issues": list(dq.known_issues) if dq.known_issues else [],
+            "last_validated": dq.last_validated,
+        }
+
+    # Build ownership info
+    ownership = None
+    if describe_result.ownership:
+        o = describe_result.ownership
+        ownership = {
+            "accountable_owner": o.accountable_owner,
+            "data_specialist": o.data_specialist,
+            "support_channel": o.support_channel,
+            "adop": o.adop,
+            "ads": o.ads,
+            "adal": o.adal,
+        }
+
+    # Build documentation
+    documentation = None
+    if node and node.documentation:
+        documentation = node.documentation.to_dict()
+
+    # Get sample data if requested
+    sample_data = None
+    if include_sample and describe_result.has_source_binding:
+        try:
+            # Try to get sample - this might fail for blocked queries
+            fetch_result = await fetch_data(path, caller, limit=sample_size)
+            sample_data = fetch_result.data
+        except Exception:
+            # Sample not available (e.g., access denied)
+            sample_data = None
+
+    return MetadataResponse(
+        moniker=moniker_str,
+        path=describe_result.path,
+        display_name=node.display_name if node else None,
+        description=node.description if node else None,
+        data_profile=data_profile,
+        temporal_coverage=temporal_coverage,
+        relationships=relationships,
+        sample_data=sample_data,
+        schema=schema,
+        semantic_tags=semantic_tags,
+        data_quality=data_quality,
+        ownership=ownership,
+        documentation=documentation,
+        query_patterns=query_patterns,
+        cost_indicators=cost_indicators,
+        nl_description=nl_description,
+        use_cases=use_cases,
+    )
+
+
+@app.get("/sample/{path:path}", response_model=SampleDataResponse)
+async def get_sample_data(
+    path: str,
+    caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
+    limit: int = Query(default=10, le=100, description="Number of sample rows"),
+):
+    """
+    Get sample rows from a data source.
+
+    Convenience endpoint for quickly understanding data structure.
+    Returns a small sample of actual data.
+    """
+    result = await fetch_data(path, caller, limit=limit)
+
+    return SampleDataResponse(
+        moniker=result.moniker,
+        path=result.path,
+        row_count=result.row_count,
+        columns=result.columns,
+        data=result.data,
+    )
+
+
 @app.get("/")
 async def root():
     """Root endpoint with service info."""
     return {
         "service": "Moniker Resolution Service",
         "version": "0.1.0",
-        "description": "Resolves monikers to source connection info. Clients connect directly to sources.",
+        "description": "Resolves monikers to source connection info. Also provides server-side fetch for convenience.",
         "endpoints": {
-            "/resolve/{path}": "Resolve moniker to source connection info",
+            # Resolution endpoints (client executes query)
+            "/resolve/{path}": "Resolve moniker to source connection info (client executes)",
             "/list/{path}": "List children in catalog",
             "/describe/{path}": "Get metadata and ownership",
             "/lineage/{path}": "Get full ownership lineage",
+            # Data fetch endpoints (server executes query)
+            "/fetch/{path}": "Fetch data (server executes query, returns data)",
+            "/sample/{path}": "Get sample rows from a data source",
+            "/metadata/{path}": "Rich metadata for AI/agent discoverability",
+            # Catalog and telemetry
             "/catalog": "List all catalog paths",
             "/telemetry/access": "POST - Report access telemetry from client",
             "/health": "Health check",
+        },
+        "ai_endpoints": {
+            "/metadata/{path}": "Optimized for AI agents - includes semantic tags, relationships, cost indicators",
+            "/sample/{path}": "Quick data samples for understanding structure",
         },
         "client_library": "pip install moniker-client",
     }
