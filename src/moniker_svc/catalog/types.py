@@ -254,6 +254,9 @@ class CatalogNode:
     # Access policy for query guardrails
     access_policy: AccessPolicy | None = None
 
+    # Documentation links (Confluence, runbooks, etc.)
+    documentation: Documentation | None = None
+
     # Data classification (for governance)
     classification: str = "internal"
 
@@ -427,3 +430,76 @@ class DataSchema:
 
     # Update frequency description
     update_frequency: str | None = None  # e.g., "daily", "real-time", "monthly"
+
+
+@dataclass(frozen=True, slots=True)
+class Documentation:
+    """
+    Documentation links for a data source - enables discoverability via metadata reflection.
+
+    Links to Confluence glossary pages, runbooks, onboarding guides, and other
+    documentation that helps users understand and work with the data.
+    """
+    # Confluence glossary page for this data domain
+    glossary_url: str | None = None
+
+    # Operational runbook for troubleshooting and on-call
+    runbook_url: str | None = None
+
+    # Onboarding guide for new users
+    onboarding_url: str | None = None
+
+    # Data dictionary / schema documentation
+    data_dictionary_url: str | None = None
+
+    # API documentation (if applicable)
+    api_docs_url: str | None = None
+
+    # Architecture / design documentation
+    architecture_url: str | None = None
+
+    # Change log / release notes
+    changelog_url: str | None = None
+
+    # Contact page or escalation guide
+    contact_url: str | None = None
+
+    # Additional documentation links (name -> url)
+    additional_links: tuple[tuple[str, str], ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        result = {}
+        if self.glossary_url:
+            result["glossary"] = self.glossary_url
+        if self.runbook_url:
+            result["runbook"] = self.runbook_url
+        if self.onboarding_url:
+            result["onboarding"] = self.onboarding_url
+        if self.data_dictionary_url:
+            result["data_dictionary"] = self.data_dictionary_url
+        if self.api_docs_url:
+            result["api_docs"] = self.api_docs_url
+        if self.architecture_url:
+            result["architecture"] = self.architecture_url
+        if self.changelog_url:
+            result["changelog"] = self.changelog_url
+        if self.contact_url:
+            result["contact"] = self.contact_url
+        if self.additional_links:
+            result["additional"] = {name: url for name, url in self.additional_links}
+        return result
+
+    def is_empty(self) -> bool:
+        """Check if no documentation links are defined."""
+        return not any([
+            self.glossary_url,
+            self.runbook_url,
+            self.onboarding_url,
+            self.data_dictionary_url,
+            self.api_docs_url,
+            self.architecture_url,
+            self.changelog_url,
+            self.contact_url,
+            self.additional_links,
+        ])

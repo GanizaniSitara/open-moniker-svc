@@ -75,6 +75,9 @@ class DescribeResponse(BaseModel):
     # Machine-readable schema for AI agents
     schema: dict[str, Any] | None = None
 
+    # Documentation links (Confluence, runbooks, etc.)
+    documentation: dict[str, Any] | None = None
+
 
 class LineageResponse(BaseModel):
     moniker: str
@@ -774,6 +777,11 @@ async def describe_moniker(
             "related_monikers": list(ds.related_monikers),
         }
 
+    # Build documentation dict if present
+    documentation = None
+    if result.node and result.node.documentation:
+        documentation = result.node.documentation.to_dict()
+
     return DescribeResponse(
         path=result.path,
         display_name=result.node.display_name if result.node else None,
@@ -801,6 +809,7 @@ async def describe_moniker(
         sla=sla,
         freshness=freshness,
         schema=schema,
+        documentation=documentation,
     )
 
 

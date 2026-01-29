@@ -27,6 +27,12 @@ indices:
     accountable_owner: indices-governance@firm.com
     data_specialist: quant-research@firm.com
     support_channel: "#indices-support"
+  documentation:
+    glossary: https://confluence.firm.com/display/DATA/Indices+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Indices+Runbook
+    onboarding: https://confluence.firm.com/display/DATA/Indices+Onboarding+Guide
+    data_dictionary: https://confluence.firm.com/display/DATA/Indices+Data+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Indices+Data+Architecture
 
 indices.sovereign:
   display_name: Sovereign Indices
@@ -83,6 +89,12 @@ commodities:
     accountable_owner: commodities-desk@firm.com
     data_specialist: commodities-quant@firm.com
     support_channel: "#commodities-data"
+  documentation:
+    glossary: https://confluence.firm.com/display/DATA/Commodities+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Commodities+Runbook
+    onboarding: https://confluence.firm.com/display/DATA/Commodities+Onboarding+Guide
+    data_dictionary: https://confluence.firm.com/display/DATA/Commodities+Data+Dictionary
+    api_docs: https://confluence.firm.com/display/API/Commodities+API+Reference
 
 commodities.derivatives:
   display_name: Commodity Derivatives
@@ -144,6 +156,13 @@ reference:
     data_specialist: ref-data-ops@firm.com
     support_channel: "#reference-data"
   classification: internal
+  documentation:
+    glossary: https://confluence.firm.com/display/DATA/Reference+Data+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Reference+Data+Runbook
+    onboarding: https://confluence.firm.com/display/DATA/Reference+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/DATA/Security+Master+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Reference+Data+Architecture
+    contact: https://confluence.firm.com/display/DATA/Reference+Data+Contacts
 
 reference.security:
   display_name: Security Master
@@ -223,6 +242,11 @@ instruments:
     accountable_owner: ref-data-governance@firm.com
     data_specialist: security-ops@firm.com
     support_channel: "#instruments"
+  documentation:
+    glossary: https://confluence.firm.com/display/DATA/Instruments+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Instruments+Runbook
+    data_dictionary: https://confluence.firm.com/display/DATA/Instrument+Attributes+Dictionary
+    api_docs: https://confluence.firm.com/display/API/Instruments+Search+API
 
 # Example: instruments/US0378331005/metadata
 instruments/metadata:
@@ -258,6 +282,13 @@ analytics:
     data_specialist: quant-analytics@firm.com
     support_channel: "#analytics-support"
   classification: confidential
+  documentation:
+    glossary: https://confluence.firm.com/display/QUANT/Analytics+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Analytics+Platform+Runbook
+    onboarding: https://confluence.firm.com/display/QUANT/Analytics+User+Guide
+    data_dictionary: https://confluence.firm.com/display/QUANT/Risk+Metrics+Dictionary
+    api_docs: https://confluence.firm.com/display/API/Analytics+REST+API
+    architecture: https://confluence.firm.com/display/ARCH/Analytics+Platform+Architecture
 
 analytics.risk:
   display_name: Risk Analytics
@@ -312,6 +343,15 @@ risk:
     data_specialist: risk-quant@firm.com
     support_channel: "#risk-analytics"
   classification: confidential
+  documentation:
+    glossary: https://confluence.firm.com/display/RISK/Risk+Measures+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Proteus+Risk+Engine+Runbook
+    onboarding: https://confluence.firm.com/display/RISK/Risk+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/RISK/CVaR+and+Tail+Risk+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Proteus+Risk+Architecture
+    additional:
+      regulatory_guide: https://confluence.firm.com/display/RISK/BCBS239+Compliance+Guide
+      methodology: https://confluence.firm.com/display/QUANT/CVaR+Methodology+Paper
 
 # Example monikers:
 #   risk.cvar/758-A/USD/ALL         - All securities for portfolio 758-A in USD
@@ -548,6 +588,12 @@ holdings:
     data_specialist: position-management@firm.com
     support_channel: "#positions"
   classification: confidential
+  documentation:
+    glossary: https://confluence.firm.com/display/OPS/Holdings+and+Positions+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Positions+System+Runbook
+    onboarding: https://confluence.firm.com/display/OPS/Positions+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/OPS/Position+Data+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Positions+Data+Flow
 
 # Example: holdings/20260115/fund_alpha
 holdings/positions:
@@ -594,6 +640,11 @@ reports:
     accountable_owner: reporting-ops@firm.com
     data_specialist: report-dev@firm.com
     support_channel: "#reporting"
+  documentation:
+    glossary: https://confluence.firm.com/display/REPORT/Reporting+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Report+Generation+Runbook
+    onboarding: https://confluence.firm.com/display/REPORT/Report+Access+Guide
+    data_dictionary: https://confluence.firm.com/display/REPORT/Report+Fields+Dictionary
 
 reports/daily:
   display_name: Daily Reports
@@ -626,6 +677,12 @@ prices:
     accountable_owner: market-data-governance@firm.com
     data_specialist: market-data-ops@firm.com
     support_channel: "#market-data"
+  documentation:
+    glossary: https://confluence.firm.com/display/MKTDATA/Pricing+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Market+Data+Runbook
+    onboarding: https://confluence.firm.com/display/MKTDATA/Market+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/MKTDATA/Price+Fields+Dictionary
+    api_docs: https://confluence.firm.com/display/API/Market+Data+API+Reference
 
 # Example: prices.equity/AAPL@20260115 or prices.equity/ALL@latest
 prices.equity:
@@ -686,6 +743,15 @@ govies:
     ads: govies-data-steward@firm.com
     adal: fi-access-control@firm.com
   classification: internal
+  documentation:
+    glossary: https://confluence.firm.com/display/FI/Government+Bonds+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Govies+Data+Runbook
+    onboarding: https://confluence.firm.com/display/FI/Government+Bonds+Onboarding
+    data_dictionary: https://confluence.firm.com/display/FI/Treasury+Data+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Fixed+Income+Data+Architecture
+    additional:
+      yield_curve_methodology: https://confluence.firm.com/display/QUANT/Yield+Curve+Construction
+      treasury_direct_integration: https://confluence.firm.com/display/INT/Treasury+Direct+Feed
 
 # Example monikers:
 #   govies.treasury/US/10Y/ALL      - All 10Y US Treasury data
@@ -942,6 +1008,15 @@ commods:
     ads: commods-data-steward@firm.com
     adal: commods-access-control@firm.com
   classification: internal
+  documentation:
+    glossary: https://confluence.firm.com/display/COMMOD/Commodities+Glossary
+    runbook: https://confluence.firm.com/display/OPS/NEFA+API+Runbook
+    onboarding: https://confluence.firm.com/display/COMMOD/Commodities+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/COMMOD/Commodities+Data+Dictionary
+    api_docs: https://confluence.firm.com/display/API/NEFA+Integration+Guide
+    additional:
+      contract_symbology: https://confluence.firm.com/display/COMMOD/Futures+Contract+Symbology
+      exchange_codes: https://confluence.firm.com/display/COMMOD/Exchange+Codes+Reference
 
 # Example monikers:
 #   commods.energy/CL/SPOT/ALL      - Crude oil spot prices
@@ -1179,6 +1254,15 @@ rates:
     ads: rates-data-steward@firm.com
     adal: rates-access-control@firm.com
   classification: internal
+  documentation:
+    glossary: https://confluence.firm.com/display/RATES/Interest+Rates+Glossary
+    runbook: https://confluence.firm.com/display/OPS/Rates+Data+Runbook
+    onboarding: https://confluence.firm.com/display/RATES/Rates+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/RATES/Swap+Rates+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/Rates+Data+Architecture
+    additional:
+      sofr_transition: https://confluence.firm.com/display/RATES/SOFR+Transition+Guide
+      curve_construction: https://confluence.firm.com/display/QUANT/Yield+Curve+Methodology
 
 # Example monikers:
 #   rates.swap/USD/5Y/ALL           - 5Y USD swap rates
@@ -1389,6 +1473,16 @@ mortgages:
     ads: mbs-data-steward@firm.com
     adal: mbs-access-control@firm.com
   classification: confidential
+  documentation:
+    glossary: https://confluence.firm.com/display/MBS/Mortgage+Analytics+Glossary
+    runbook: https://confluence.firm.com/display/OPS/MBS+Excel+Models+Runbook
+    onboarding: https://confluence.firm.com/display/MBS/MBS+Data+Onboarding
+    data_dictionary: https://confluence.firm.com/display/MBS/Pool+Data+Dictionary
+    architecture: https://confluence.firm.com/display/ARCH/MBS+Analytics+Architecture
+    additional:
+      prepayment_methodology: https://confluence.firm.com/display/QUANT/Prepayment+Model+Documentation
+      agency_pool_guide: https://confluence.firm.com/display/MBS/Agency+Pool+ID+Guide
+      oas_calculation: https://confluence.firm.com/display/QUANT/OAS+Calculation+Methodology
 
 # Example monikers:
 #   mortgages.pools/FNMA/30Y/ALL    - Fannie Mae 30Y pools

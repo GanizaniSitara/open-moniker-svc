@@ -11,7 +11,7 @@ import yaml
 from .registry import CatalogRegistry
 from .types import (
     AccessPolicy, CatalogNode, ColumnSchema, DataQuality, DataSchema,
-    Freshness, Ownership, SLA, SourceBinding, SourceType,
+    Documentation, Freshness, Ownership, SLA, SourceBinding, SourceType,
 )
 
 
@@ -189,6 +189,26 @@ class CatalogLoader:
                 allowed_roles=tuple(ap_data.get("allowed_roles", [])),
             )
 
+        # Parse documentation links (Confluence, runbooks, etc.)
+        documentation = None
+        if "documentation" in data:
+            doc_data = data["documentation"]
+            # Parse additional links as tuple of (name, url) pairs
+            additional = doc_data.get("additional", {})
+            additional_links = tuple((k, v) for k, v in additional.items()) if additional else ()
+
+            documentation = Documentation(
+                glossary_url=doc_data.get("glossary"),
+                runbook_url=doc_data.get("runbook"),
+                onboarding_url=doc_data.get("onboarding"),
+                data_dictionary_url=doc_data.get("data_dictionary"),
+                api_docs_url=doc_data.get("api_docs"),
+                architecture_url=doc_data.get("architecture"),
+                changelog_url=doc_data.get("changelog"),
+                contact_url=doc_data.get("contact"),
+                additional_links=additional_links,
+            )
+
         return CatalogNode(
             path=path,
             display_name=data.get("display_name", ""),
@@ -200,6 +220,7 @@ class CatalogLoader:
             freshness=freshness,
             data_schema=data_schema,
             access_policy=access_policy,
+            documentation=documentation,
             classification=data.get("classification", "internal"),
             tags=tags,
             metadata=data.get("metadata", {}),

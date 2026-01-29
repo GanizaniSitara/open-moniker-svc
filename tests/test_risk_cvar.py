@@ -335,3 +335,40 @@ class TestRiskCvarAccessPolicy:
         rows_all = policy.estimate_rows(["ALL", "ALL", "ALL"])
         assert rows_all > rows_one_all
         assert rows_all > 1_000_000_000  # Should be in billions
+
+
+class TestRiskDocumentation:
+    """Test documentation links for data discoverability."""
+
+    def test_risk_domain_has_documentation(self, catalog_registry):
+        """Risk domain should have documentation links."""
+        node = catalog_registry.get("risk")
+        assert node is not None
+        assert node.documentation is not None
+
+        doc = node.documentation
+        assert doc.glossary_url is not None
+        assert "confluence" in doc.glossary_url.lower()
+        assert doc.runbook_url is not None
+        assert "runbook" in doc.runbook_url.lower()
+
+    def test_documentation_to_dict(self, catalog_registry):
+        """Documentation should serialize to dict for API response."""
+        node = catalog_registry.get("risk")
+        doc_dict = node.documentation.to_dict()
+
+        assert "glossary" in doc_dict
+        assert "runbook" in doc_dict
+        # Risk has additional links
+        assert "additional" in doc_dict
+        assert "regulatory_guide" in doc_dict["additional"]
+
+    def test_multiple_domains_have_documentation(self, catalog_registry):
+        """Multiple domains should have documentation configured."""
+        domains_with_docs = ["risk", "govies", "commods", "rates", "mortgages"]
+
+        for domain in domains_with_docs:
+            node = catalog_registry.get(domain)
+            assert node is not None, f"Domain {domain} not found"
+            assert node.documentation is not None, f"Domain {domain} missing documentation"
+            assert node.documentation.glossary_url is not None, f"Domain {domain} missing glossary"
