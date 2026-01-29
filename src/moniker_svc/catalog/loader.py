@@ -9,7 +9,10 @@ from typing import Any
 import yaml
 
 from .registry import CatalogRegistry
-from .types import CatalogNode, Ownership, SourceBinding, SourceType
+from .types import (
+    AccessPolicy, CatalogNode, ColumnSchema, DataQuality, DataSchema,
+    Documentation, Freshness, Ownership, SLA, SourceBinding, SourceType,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -70,7 +73,7 @@ class CatalogLoader:
 
     def _parse_node(self, path: str, data: dict[str, Any]) -> CatalogNode:
         """Parse a single catalog node from dictionary."""
-        # Parse ownership
+        # Parse ownership (including formal governance roles)
         ownership = Ownership()
         if "ownership" in data:
             own_data = data["ownership"]
@@ -78,6 +81,10 @@ class CatalogLoader:
                 accountable_owner=own_data.get("accountable_owner"),
                 data_specialist=own_data.get("data_specialist"),
                 support_channel=own_data.get("support_channel"),
+                # Formal governance roles (ADOP, ADS, ADAL)
+                adop=own_data.get("adop"),
+                ads=own_data.get("ads"),
+                adal=own_data.get("adal"),
             )
 
         # Parse source binding
@@ -102,12 +109,118 @@ class CatalogLoader:
         # Parse tags
         tags = frozenset(data.get("tags", []))
 
+        # Parse data quality
+        data_quality = None
+        if "data_quality" in data:
+            dq_data = data["data_quality"]
+            data_quality = DataQuality(
+                dq_owner=dq_data.get("dq_owner"),
+                quality_score=dq_data.get("quality_score"),
+                validation_rules=tuple(dq_data.get("validation_rules", [])),
+                known_issues=tuple(dq_data.get("known_issues", [])),
+                last_validated=dq_data.get("last_validated"),
+            )
+
+        # Parse SLA
+        sla = None
+        if "sla" in data:
+            sla_data = data["sla"]
+            sla = SLA(
+                freshness=sla_data.get("freshness"),
+                availability=sla_data.get("availability"),
+                support_hours=sla_data.get("support_hours"),
+                escalation_contact=sla_data.get("escalation_contact"),
+            )
+
+        # Parse freshness
+        freshness = None
+        if "freshness" in data:
+            fresh_data = data["freshness"]
+            freshness = Freshness(
+                last_loaded=fresh_data.get("last_loaded"),
+                refresh_schedule=fresh_data.get("refresh_schedule"),
+                source_system=fresh_data.get("source_system"),
+                upstream_dependencies=tuple(fresh_data.get("upstream_dependencies", [])),
+            )
+
+        # Parse data schema (AI-readable metadata)
+        data_schema = None
+        if "schema" in data:
+            schema_data = data["schema"]
+            columns = []
+            for col_data in schema_data.get("columns", []):
+                columns.append(ColumnSchema(
+                    name=col_data.get("name", ""),
+                    data_type=col_data.get("type", "string"),
+                    description=col_data.get("description", ""),
+                    semantic_type=col_data.get("semantic_type"),
+                    example=col_data.get("example"),
+                    nullable=col_data.get("nullable", True),
+                    primary_key=col_data.get("primary_key", False),
+                    foreign_key=col_data.get("foreign_key"),
+                ))
+            data_schema = DataSchema(
+                columns=tuple(columns),
+                description=schema_data.get("description", ""),
+                semantic_tags=tuple(schema_data.get("semantic_tags", [])),
+                primary_key=tuple(schema_data.get("primary_key", [])),
+                use_cases=tuple(schema_data.get("use_cases", [])),
+                examples=tuple(schema_data.get("examples", [])),
+                related_monikers=tuple(schema_data.get("related_monikers", [])),
+                granularity=schema_data.get("granularity"),
+                typical_row_count=schema_data.get("typical_row_count"),
+                update_frequency=schema_data.get("update_frequency"),
+            )
+
+        # Parse access policy (query guardrails)
+        access_policy = None
+        if "access_policy" in data:
+            ap_data = data["access_policy"]
+            access_policy = AccessPolicy(
+                required_segments=tuple(ap_data.get("required_segments", [])),
+                min_filters=ap_data.get("min_filters", 0),
+                blocked_patterns=tuple(ap_data.get("blocked_patterns", [])),
+                max_rows_warn=ap_data.get("max_rows_warn"),
+                max_rows_block=ap_data.get("max_rows_block"),
+                cardinality_multipliers=tuple(ap_data.get("cardinality_multipliers", [])),
+                base_row_count=ap_data.get("base_row_count", 100),
+                require_confirmation_above=ap_data.get("require_confirmation_above"),
+                denial_message=ap_data.get("denial_message"),
+                allowed_roles=tuple(ap_data.get("allowed_roles", [])),
+            )
+
+        # Parse documentation links (Confluence, runbooks, etc.)
+        documentation = None
+        if "documentation" in data:
+            doc_data = data["documentation"]
+            # Parse additional links as tuple of (name, url) pairs
+            additional = doc_data.get("additional", {})
+            additional_links = tuple((k, v) for k, v in additional.items()) if additional else ()
+
+            documentation = Documentation(
+                glossary_url=doc_data.get("glossary"),
+                runbook_url=doc_data.get("runbook"),
+                onboarding_url=doc_data.get("onboarding"),
+                data_dictionary_url=doc_data.get("data_dictionary"),
+                api_docs_url=doc_data.get("api_docs"),
+                architecture_url=doc_data.get("architecture"),
+                changelog_url=doc_data.get("changelog"),
+                contact_url=doc_data.get("contact"),
+                additional_links=additional_links,
+            )
+
         return CatalogNode(
             path=path,
             display_name=data.get("display_name", ""),
             description=data.get("description", ""),
             ownership=ownership,
             source_binding=source_binding,
+            data_quality=data_quality,
+            sla=sla,
+            freshness=freshness,
+            data_schema=data_schema,
+            access_policy=access_policy,
+            documentation=documentation,
             classification=data.get("classification", "internal"),
             tags=tags,
             metadata=data.get("metadata", {}),

@@ -87,7 +87,8 @@ class CatalogRegistry:
         Resolve effective ownership for a path by walking up the hierarchy.
 
         Each ownership field inherits independently from the nearest ancestor
-        that defines it.
+        that defines it. This includes both simplified ownership fields and
+        formal governance roles (ADOP, ADS, ADAL).
         """
         path_str = str(path) if isinstance(path, MonikerPath) else path
 
@@ -95,6 +96,7 @@ class CatalogRegistry:
             # Collect all paths from root to this node
             paths = self._ancestor_paths(path_str) + [path_str]
 
+            # Simplified ownership fields
             accountable_owner: str | None = None
             accountable_owner_source: str | None = None
             data_specialist: str | None = None
@@ -102,10 +104,19 @@ class CatalogRegistry:
             support_channel: str | None = None
             support_channel_source: str | None = None
 
+            # Formal governance roles
+            adop: str | None = None
+            adop_source: str | None = None
+            ads: str | None = None
+            ads_source: str | None = None
+            adal: str | None = None
+            adal_source: str | None = None
+
             # Walk from root to leaf, each level can override
             for p in paths:
                 node = self._nodes.get(p)
                 if node and node.ownership:
+                    # Simplified ownership
                     if node.ownership.accountable_owner:
                         accountable_owner = node.ownership.accountable_owner
                         accountable_owner_source = p
@@ -115,6 +126,16 @@ class CatalogRegistry:
                     if node.ownership.support_channel:
                         support_channel = node.ownership.support_channel
                         support_channel_source = p
+                    # Formal governance roles
+                    if node.ownership.adop:
+                        adop = node.ownership.adop
+                        adop_source = p
+                    if node.ownership.ads:
+                        ads = node.ownership.ads
+                        ads_source = p
+                    if node.ownership.adal:
+                        adal = node.ownership.adal
+                        adal_source = p
 
             return ResolvedOwnership(
                 accountable_owner=accountable_owner,
@@ -123,6 +144,12 @@ class CatalogRegistry:
                 data_specialist_source=data_specialist_source,
                 support_channel=support_channel,
                 support_channel_source=support_channel_source,
+                adop=adop,
+                adop_source=adop_source,
+                ads=ads,
+                ads_source=ads_source,
+                adal=adal,
+                adal_source=adal_source,
             )
 
     def find_source_binding(self, path: str | MonikerPath) -> tuple[SourceBinding, str] | None:

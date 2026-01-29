@@ -23,7 +23,7 @@ from .catalog.types import CatalogNode, Ownership, SourceBinding, SourceType
 from .config import Config
 from .identity.extractor import extract_identity
 from .moniker.parser import MonikerParseError
-from .service import MonikerService, NotFoundError, ResolutionError
+from .service import MonikerService, AccessDeniedError, NotFoundError, ResolutionError
 from .telemetry.batcher import TelemetryBatcher, create_batched_consumer
 from .telemetry.emitter import TelemetryEmitter
 from .telemetry.events import CallerIdentity, EventOutcome
@@ -66,6 +66,17 @@ class DescribeResponse(BaseModel):
     source_type: str | None = None
     classification: str | None = None
     tags: list[str] = []
+
+    # Data governance fields
+    data_quality: dict[str, Any] | None = None
+    sla: dict[str, Any] | None = None
+    freshness: dict[str, Any] | None = None
+
+    # Machine-readable schema for AI agents
+    schema: dict[str, Any] | None = None
+
+    # Documentation links (Confluence, runbooks, etc.)
+    documentation: dict[str, Any] | None = None
 
 
 class LineageResponse(BaseModel):
@@ -582,6 +593,19 @@ async def not_found_error_handler(request: Request, exc: NotFoundError):
     )
 
 
+@app.exception_handler(AccessDeniedError)
+async def access_denied_error_handler(request: Request, exc: AccessDeniedError):
+    """Handle access policy violations - returns 403 Forbidden."""
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": "Access denied",
+            "detail": str(exc),
+            "estimated_rows": exc.estimated_rows,
+        },
+    )
+
+
 @app.exception_handler(ResolutionError)
 async def resolution_error_handler(request: Request, exc: ResolutionError):
     return JSONResponse(
@@ -645,6 +669,13 @@ async def resolve_moniker(
             "data_specialist_source": result.ownership.data_specialist_source,
             "support_channel": result.ownership.support_channel,
             "support_channel_source": result.ownership.support_channel_source,
+            # Formal governance roles
+            "adop": result.ownership.adop,
+            "adop_source": result.ownership.adop_source,
+            "ads": result.ownership.ads,
+            "ads_source": result.ownership.ads_source,
+            "adal": result.ownership.adal,
+            "adal_source": result.ownership.adal_source,
         },
         binding_path=result.binding_path,
         sub_path=result.sub_path,
@@ -682,6 +713,75 @@ async def describe_moniker(
     moniker_str = f"moniker://{path}"
 
     result = await _service.describe(moniker_str, caller)
+
+    # Build data quality dict if present
+    data_quality = None
+    if result.node and result.node.data_quality:
+        dq = result.node.data_quality
+        data_quality = {
+            "dq_owner": dq.dq_owner,
+            "quality_score": dq.quality_score,
+            "validation_rules": list(dq.validation_rules),
+            "known_issues": list(dq.known_issues),
+            "last_validated": dq.last_validated,
+        }
+
+    # Build SLA dict if present
+    sla = None
+    if result.node and result.node.sla:
+        s = result.node.sla
+        sla = {
+            "freshness": s.freshness,
+            "availability": s.availability,
+            "support_hours": s.support_hours,
+            "escalation_contact": s.escalation_contact,
+        }
+
+    # Build freshness dict if present
+    freshness = None
+    if result.node and result.node.freshness:
+        f = result.node.freshness
+        freshness = {
+            "last_loaded": f.last_loaded,
+            "refresh_schedule": f.refresh_schedule,
+            "source_system": f.source_system,
+            "upstream_dependencies": list(f.upstream_dependencies),
+        }
+
+    # Build schema dict if present (AI-readable metadata)
+    schema = None
+    if result.node and result.node.data_schema:
+        ds = result.node.data_schema
+        schema = {
+            "description": ds.description,
+            "semantic_tags": list(ds.semantic_tags),
+            "granularity": ds.granularity,
+            "typical_row_count": ds.typical_row_count,
+            "update_frequency": ds.update_frequency,
+            "primary_key": list(ds.primary_key),
+            "columns": [
+                {
+                    "name": col.name,
+                    "type": col.data_type,
+                    "description": col.description,
+                    "semantic_type": col.semantic_type,
+                    "example": col.example,
+                    "nullable": col.nullable,
+                    "primary_key": col.primary_key,
+                    "foreign_key": col.foreign_key,
+                }
+                for col in ds.columns
+            ],
+            "use_cases": list(ds.use_cases),
+            "examples": list(ds.examples),
+            "related_monikers": list(ds.related_monikers),
+        }
+
+    # Build documentation dict if present
+    documentation = None
+    if result.node and result.node.documentation:
+        documentation = result.node.documentation.to_dict()
+
     return DescribeResponse(
         path=result.path,
         display_name=result.node.display_name if result.node else None,
@@ -693,11 +793,23 @@ async def describe_moniker(
             "data_specialist_source": result.ownership.data_specialist_source,
             "support_channel": result.ownership.support_channel,
             "support_channel_source": result.ownership.support_channel_source,
+            # Formal governance roles
+            "adop": result.ownership.adop,
+            "adop_source": result.ownership.adop_source,
+            "ads": result.ownership.ads,
+            "ads_source": result.ownership.ads_source,
+            "adal": result.ownership.adal,
+            "adal_source": result.ownership.adal_source,
         },
         has_source_binding=result.has_source_binding,
         source_type=result.source_type,
         classification=result.node.classification if result.node else None,
         tags=list(result.node.tags) if result.node else [],
+        data_quality=data_quality,
+        sla=sla,
+        freshness=freshness,
+        schema=schema,
+        documentation=documentation,
     )
 
 
