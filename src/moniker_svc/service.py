@@ -655,6 +655,24 @@ class MonikerService:
                     "support_channel": ownership.support_channel,
                     "support_channel_defined_at": ownership.support_channel_source,
                 },
+                # Formal governance roles (BCBS 239 / DAMA style)
+                "governance_roles": {
+                    "adop": {
+                        "value": ownership.adop,
+                        "defined_at": ownership.adop_source,
+                        "description": "Accountable Data Owner/Principal - business executive with ultimate accountability",
+                    },
+                    "ads": {
+                        "value": ownership.ads,
+                        "defined_at": ownership.ads_source,
+                        "description": "Accountable Data Steward - day-to-day data quality and standards",
+                    },
+                    "adal": {
+                        "value": ownership.adal,
+                        "defined_at": ownership.adal_source,
+                        "description": "Accountable Data Access Lead - controls access and permissions",
+                    },
+                },
                 "source": {
                     "type": source_type,
                     "binding_defined_at": source_binding_path,

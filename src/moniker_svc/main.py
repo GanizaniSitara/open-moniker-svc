@@ -72,6 +72,9 @@ class DescribeResponse(BaseModel):
     sla: dict[str, Any] | None = None
     freshness: dict[str, Any] | None = None
 
+    # Machine-readable schema for AI agents
+    schema: dict[str, Any] | None = None
+
 
 class LineageResponse(BaseModel):
     moniker: str
@@ -650,6 +653,13 @@ async def resolve_moniker(
             "data_specialist_source": result.ownership.data_specialist_source,
             "support_channel": result.ownership.support_channel,
             "support_channel_source": result.ownership.support_channel_source,
+            # Formal governance roles
+            "adop": result.ownership.adop,
+            "adop_source": result.ownership.adop_source,
+            "ads": result.ownership.ads,
+            "ads_source": result.ownership.ads_source,
+            "adal": result.ownership.adal,
+            "adal_source": result.ownership.adal_source,
         },
         binding_path=result.binding_path,
         sub_path=result.sub_path,
@@ -722,6 +732,35 @@ async def describe_moniker(
             "upstream_dependencies": list(f.upstream_dependencies),
         }
 
+    # Build schema dict if present (AI-readable metadata)
+    schema = None
+    if result.node and result.node.data_schema:
+        ds = result.node.data_schema
+        schema = {
+            "description": ds.description,
+            "semantic_tags": list(ds.semantic_tags),
+            "granularity": ds.granularity,
+            "typical_row_count": ds.typical_row_count,
+            "update_frequency": ds.update_frequency,
+            "primary_key": list(ds.primary_key),
+            "columns": [
+                {
+                    "name": col.name,
+                    "type": col.data_type,
+                    "description": col.description,
+                    "semantic_type": col.semantic_type,
+                    "example": col.example,
+                    "nullable": col.nullable,
+                    "primary_key": col.primary_key,
+                    "foreign_key": col.foreign_key,
+                }
+                for col in ds.columns
+            ],
+            "use_cases": list(ds.use_cases),
+            "examples": list(ds.examples),
+            "related_monikers": list(ds.related_monikers),
+        }
+
     return DescribeResponse(
         path=result.path,
         display_name=result.node.display_name if result.node else None,
@@ -733,6 +772,13 @@ async def describe_moniker(
             "data_specialist_source": result.ownership.data_specialist_source,
             "support_channel": result.ownership.support_channel,
             "support_channel_source": result.ownership.support_channel_source,
+            # Formal governance roles
+            "adop": result.ownership.adop,
+            "adop_source": result.ownership.adop_source,
+            "ads": result.ownership.ads,
+            "ads_source": result.ownership.ads_source,
+            "adal": result.ownership.adal,
+            "adal_source": result.ownership.adal_source,
         },
         has_source_binding=result.has_source_binding,
         source_type=result.source_type,
@@ -741,6 +787,7 @@ async def describe_moniker(
         data_quality=data_quality,
         sla=sla,
         freshness=freshness,
+        schema=schema,
     )
 
 

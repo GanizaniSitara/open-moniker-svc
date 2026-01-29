@@ -332,9 +332,14 @@ risk.cvar:
   classification: confidential
 
   ownership:
+    # Simplified ownership
     accountable_owner: risk-governance@firm.com
     data_specialist: risk-quant@firm.com
     support_channel: "#risk-analytics"
+    # Formal data governance roles (BCBS 239 / DAMA)
+    adop: quant-research@firm.com        # Accountable Data Owner/Principal - business executive
+    ads: risk-data-steward@firm.com       # Accountable Data Steward - data quality & standards
+    adal: risk-access-control@firm.com    # Accountable Data Access Lead - access & permissions
 
   # Data Quality information
   data_quality:
@@ -364,6 +369,131 @@ risk.cvar:
       - "positions.eod"
       - "market-data.eod"
       - "reference.security"
+
+  # Machine-readable schema for AI agent discoverability
+  schema:
+    description: |
+      Conditional Value at Risk (CVaR) tail risk measures from the Proteus risk engine.
+      Contains daily risk metrics per portfolio, currency, and security combination.
+      CVaR represents the expected loss given that the loss exceeds the VaR threshold,
+      providing insight into tail risk exposure.
+
+    semantic_tags:
+      - risk
+      - cvar
+      - tail-risk
+      - timeseries
+      - financial
+      - portfolio-analytics
+      - stress-testing
+      - regulatory
+
+    granularity: "daily, per-portfolio, per-currency, per-security"
+    typical_row_count: "1M-100M"
+    update_frequency: "daily (T+1)"
+
+    primary_key:
+      - ASOF_DATE
+      - PORT_NO
+      - PORT_TYPE
+      - SSM_ID
+      - BASE_CURRENCY
+
+    columns:
+      - name: ASOF_DATE
+        type: date
+        description: "Business date for the risk calculation (T+1 from market close)"
+        semantic_type: timestamp
+        example: "2026-01-28"
+        nullable: false
+        primary_key: true
+
+      - name: PORT_NO
+        type: string
+        description: "Portfolio number identifier"
+        semantic_type: identifier
+        example: "758"
+        nullable: false
+        primary_key: true
+
+      - name: PORT_TYPE
+        type: string
+        description: "Portfolio type classification (A=Active, B=Benchmark)"
+        semantic_type: dimension
+        example: "A"
+        nullable: false
+        primary_key: true
+
+      - name: SSM_ID
+        type: string
+        description: "Security master identifier - unique security ID from SSM system"
+        semantic_type: identifier
+        example: "B0YHY8V7"
+        nullable: false
+        primary_key: true
+        foreign_key: "reference.security/SSM"
+
+      - name: BASE_CURRENCY
+        type: string
+        description: "Base currency for the CVaR calculation (ISO 4217)"
+        semantic_type: dimension
+        example: "USD"
+        nullable: false
+        primary_key: true
+
+      - name: ACCT_KEY
+        type: string
+        description: "Account key for position attribution"
+        semantic_type: identifier
+        example: "758-IDX-16220-[TPH200010]"
+        nullable: true
+
+      - name: LT_ID
+        type: integer
+        description: "Liquidity tier ID (0=liquid, 24=illiquid)"
+        semantic_type: dimension
+        example: "0"
+        nullable: true
+
+      - name: LT_ID_2
+        type: integer
+        description: "Secondary liquidity tier for override scenarios"
+        semantic_type: dimension
+        example: "null"
+        nullable: true
+
+      - name: CVAR_COEFF
+        type: float
+        description: "CVaR coefficient - sensitivity factor for the position"
+        semantic_type: measure
+        example: "-0.00005"
+        nullable: false
+
+      - name: CVAR
+        type: float
+        description: "Conditional Value at Risk - expected loss in tail scenarios (decimal)"
+        semantic_type: measure
+        example: "-0.0152"
+        nullable: false
+
+    use_cases:
+      - "Calculate portfolio-level tail risk exposure"
+      - "Monitor daily CVaR changes for risk limits"
+      - "Compare CVaR across currencies for hedging decisions"
+      - "Identify high-risk securities for portfolio optimization"
+      - "Regulatory reporting (BCBS 239, FRTB)"
+      - "Stress testing and scenario analysis"
+
+    examples:
+      - "risk.cvar/758-A/USD/ALL - All USD securities in portfolio 758-A"
+      - "risk.cvar/ALL/USD/B0YHY8V7 - Security B0YHY8V7 across all USD portfolios"
+      - "risk.cvar/ALL/ALL/ALL - Full dataset (caution: large)"
+
+    related_monikers:
+      - "positions.eod - End of day position data"
+      - "market-data.eod - Market prices used in calculation"
+      - "reference.security/SSM - Security master for SSM_ID lookups"
+      - "analytics.risk/var - Value at Risk (related metric)"
 
   source_binding:
     type: oracle

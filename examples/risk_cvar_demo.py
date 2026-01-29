@@ -211,9 +211,111 @@ def run_demo():
     except Exception as e:
         print(f"   Error: {e}")
 
-    # Demo 6: Use with pandas
+    # Demo 6: Show ownership lineage with governance roles
     print("\n" + "=" * 60)
-    print("6. Convert to pandas DataFrame for analysis")
+    print("6. Ownership Lineage with Governance Roles (ADOP, ADS, ADAL)")
+    print("=" * 60)
+    try:
+        lineage_info = client.lineage("risk.cvar")
+        print(f"\n   Path: {lineage_info.get('path')}")
+
+        # Simplified ownership
+        ownership = lineage_info.get('ownership', {})
+        print(f"\n   Simplified Ownership:")
+        print(f"      Owner:       {ownership.get('accountable_owner')}")
+        print(f"         defined at: {ownership.get('accountable_owner_defined_at')}")
+        print(f"      Specialist:  {ownership.get('data_specialist')}")
+        print(f"         defined at: {ownership.get('data_specialist_defined_at')}")
+        print(f"      Support:     {ownership.get('support_channel')}")
+        print(f"         defined at: {ownership.get('support_channel_defined_at')}")
+
+        # Formal governance roles
+        gov_roles = lineage_info.get('governance_roles', {})
+        print(f"\n   Formal Governance Roles (BCBS 239 / DAMA):")
+
+        adop = gov_roles.get('adop', {})
+        print(f"      ADOP (Accountable Data Owner/Principal):")
+        print(f"         {adop.get('value')}")
+        print(f"         defined at: {adop.get('defined_at')}")
+
+        ads = gov_roles.get('ads', {})
+        print(f"      ADS (Accountable Data Steward):")
+        print(f"         {ads.get('value')}")
+        print(f"         defined at: {ads.get('defined_at')}")
+
+        adal = gov_roles.get('adal', {})
+        print(f"      ADAL (Accountable Data Access Lead):")
+        print(f"         {adal.get('value')}")
+        print(f"         defined at: {adal.get('defined_at')}")
+
+        # Source binding info
+        source = lineage_info.get('source', {})
+        print(f"\n   Source Binding:")
+        print(f"      Type:        {source.get('type')}")
+        print(f"      Defined at:  {source.get('binding_defined_at')}")
+
+        # Path hierarchy
+        hierarchy = lineage_info.get('path_hierarchy', [])
+        print(f"\n   Path Hierarchy:")
+        for h in hierarchy:
+            print(f"      -> {h}")
+
+    except Exception as e:
+        print(f"   Error: {e}")
+
+    # Demo 7: Machine-readable schema for AI agents
+    print("\n" + "=" * 60)
+    print("7. Machine-Readable Schema (for AI Agent Discovery)")
+    print("=" * 60)
+    try:
+        info = client.describe("risk.cvar")
+        schema = info.get('schema', {})
+
+        if schema:
+            print(f"\n   Description:")
+            desc_lines = schema.get('description', '').strip().split('\n')
+            for line in desc_lines[:2]:
+                print(f"      {line}")
+
+            print(f"\n   Semantic Tags (for AI search):")
+            tags = schema.get('semantic_tags', [])
+            print(f"      {', '.join(tags)}")
+
+            print(f"\n   Data Profile:")
+            print(f"      Granularity:       {schema.get('granularity')}")
+            print(f"      Update Frequency:  {schema.get('update_frequency')}")
+            print(f"      Typical Row Count: {schema.get('typical_row_count')}")
+
+            print(f"\n   Columns ({len(schema.get('columns', []))} total):")
+            for col in schema.get('columns', [])[:4]:
+                pk = " [PK]" if col.get('primary_key') else ""
+                fk = f" -> {col.get('foreign_key')}" if col.get('foreign_key') else ""
+                print(f"      {col['name']}{pk} ({col['type']}, {col.get('semantic_type', 'N/A')})")
+                print(f"         {col.get('description', '')[:60]}")
+                if fk:
+                    print(f"         Foreign key: {fk}")
+            print(f"      ... and {len(schema.get('columns', [])) - 4} more columns")
+
+            print(f"\n   Use Cases (AI can suggest appropriate queries):")
+            for uc in schema.get('use_cases', [])[:3]:
+                print(f"      - {uc}")
+
+            print(f"\n   Example Monikers:")
+            for ex in schema.get('examples', [])[:3]:
+                print(f"      {ex}")
+
+            print(f"\n   Related Monikers (for joins/enrichment):")
+            for rel in schema.get('related_monikers', [])[:3]:
+                print(f"      - {rel}")
+        else:
+            print("   No schema defined")
+
+    except Exception as e:
+        print(f"   Error: {e}")
+
+    # Demo 8: Use with pandas
+    print("\n" + "=" * 60)
+    print("8. Convert to pandas DataFrame for analysis")
     print("=" * 60)
     try:
         import pandas as pd

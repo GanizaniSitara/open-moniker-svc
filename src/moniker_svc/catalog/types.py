@@ -25,14 +25,22 @@ class SourceType(str, Enum):
 @dataclass(frozen=True, slots=True)
 class Ownership:
     """
-    Ownership triple for a catalog node.
+    Ownership for a catalog node with data governance roles.
 
-    This can be partially defined - each field inherits independently
-    from ancestors if not set.
+    Supports both simplified ownership (accountable_owner, data_specialist, support_channel)
+    and formal data governance roles (ADOP, ADS, ADAL).
+
+    Each field inherits independently from ancestors if not set.
     """
+    # Simplified ownership fields
     accountable_owner: str | None = None  # Executive accountable for the data
     data_specialist: str | None = None    # Technical SME / data expert
     support_channel: str | None = None    # Slack/Teams channel for help
+
+    # Formal data governance roles (BCBS 239 / DAMA style)
+    adop: str | None = None   # Accountable Data Owner/Principal - business executive with ultimate accountability
+    ads: str | None = None    # Accountable Data Steward - day-to-day data quality and standards
+    adal: str | None = None   # Accountable Data Access Lead - controls access and permissions
 
     def merge_with_parent(self, parent: Ownership) -> Ownership:
         """
@@ -43,6 +51,9 @@ class Ownership:
             accountable_owner=self.accountable_owner or parent.accountable_owner,
             data_specialist=self.data_specialist or parent.data_specialist,
             support_channel=self.support_channel or parent.support_channel,
+            adop=self.adop or parent.adop,
+            ads=self.ads or parent.ads,
+            adal=self.adal or parent.adal,
         )
 
     def is_complete(self) -> bool:
@@ -53,12 +64,19 @@ class Ownership:
             self.support_channel,
         ])
 
+    def has_governance_roles(self) -> bool:
+        """Check if any formal governance roles are defined."""
+        return any([self.adop, self.ads, self.adal])
+
     def is_empty(self) -> bool:
         """Check if no ownership fields are defined."""
         return not any([
             self.accountable_owner,
             self.data_specialist,
             self.support_channel,
+            self.adop,
+            self.ads,
+            self.adal,
         ])
 
 
@@ -113,6 +131,9 @@ class CatalogNode:
     sla: SLA | None = None
     freshness: Freshness | None = None
 
+    # Machine-readable schema for AI agent discoverability
+    data_schema: DataSchema | None = None
+
     # Data classification (for governance)
     classification: str = "internal"
 
@@ -139,6 +160,7 @@ class ResolvedOwnership:
 
     Shows the effective ownership and where each field came from.
     """
+    # Simplified ownership with provenance
     accountable_owner: str | None = None
     accountable_owner_source: str | None = None  # Path where this was defined
 
@@ -148,6 +170,16 @@ class ResolvedOwnership:
     support_channel: str | None = None
     support_channel_source: str | None = None
 
+    # Formal governance roles with provenance
+    adop: str | None = None
+    adop_source: str | None = None
+
+    ads: str | None = None
+    ads_source: str | None = None
+
+    adal: str | None = None
+    adal_source: str | None = None
+
     @property
     def ownership(self) -> Ownership:
         """Get as simple Ownership (without provenance)."""
@@ -155,7 +187,19 @@ class ResolvedOwnership:
             accountable_owner=self.accountable_owner,
             data_specialist=self.data_specialist,
             support_channel=self.support_channel,
+            adop=self.adop,
+            ads=self.ads,
+            adal=self.adal,
         )
+
+    @property
+    def governance_roles(self) -> dict[str, dict[str, str | None]]:
+        """Get governance roles with their provenance as a dictionary."""
+        return {
+            "adop": {"value": self.adop, "defined_at": self.adop_source},
+            "ads": {"value": self.ads, "defined_at": self.ads_source},
+            "adal": {"value": self.adal, "defined_at": self.adal_source},
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,3 +251,59 @@ class Freshness:
 
     # Upstream dependencies
     upstream_dependencies: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnSchema:
+    """Schema definition for a single column - AI-readable metadata."""
+    name: str
+    data_type: str  # e.g., "string", "float", "date", "integer", "boolean"
+    description: str = ""  # Natural language description
+    semantic_type: str | None = None  # e.g., "identifier", "measure", "dimension", "timestamp"
+    example: str | None = None  # Example value
+    nullable: bool = True
+    primary_key: bool = False
+    foreign_key: str | None = None  # Reference to another moniker path
+
+
+@dataclass(frozen=True, slots=True)
+class DataSchema:
+    """
+    Schema metadata for a data source - designed for AI agent discoverability.
+
+    This provides machine-readable information about the data structure,
+    semantics, and relationships that AI agents can use for:
+    - Understanding what data is available
+    - Generating appropriate queries
+    - Validating data transformations
+    - Discovering related datasets
+    """
+    # Column definitions
+    columns: tuple[ColumnSchema, ...] = ()
+
+    # Natural language description of the dataset
+    description: str = ""
+
+    # Semantic tags for discoverability (e.g., "risk", "timeseries", "financial")
+    semantic_tags: tuple[str, ...] = ()
+
+    # Primary key column(s)
+    primary_key: tuple[str, ...] = ()
+
+    # Common access patterns / use cases
+    use_cases: tuple[str, ...] = ()
+
+    # Example queries or monikers
+    examples: tuple[str, ...] = ()
+
+    # Related monikers (for join/enrichment)
+    related_monikers: tuple[str, ...] = ()
+
+    # Granularity (e.g., "daily", "per-security", "per-portfolio")
+    granularity: str | None = None
+
+    # Expected row count range (for AI to understand scale)
+    typical_row_count: str | None = None  # e.g., "1K-10K", "1M-10M"
+
+    # Update frequency description
+    update_frequency: str | None = None  # e.g., "daily", "real-time", "monthly"
