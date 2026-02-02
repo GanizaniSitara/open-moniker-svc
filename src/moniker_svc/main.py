@@ -38,6 +38,7 @@ from .telemetry.events import CallerIdentity, EventOutcome
 from .telemetry.sinks.console import ConsoleSink
 from .telemetry.sinks.file import RotatingFileSink
 from .telemetry.sinks.zmq import ZmqSink
+from .sql_catalog import routes as sql_catalog_routes
 
 
 logger = logging.getLogger(__name__)
@@ -623,6 +624,14 @@ async def lifespan(app: FastAPI):
         set_authenticator(None)
         logger.info("Authentication disabled")
 
+    # Initialize SQL Catalog if enabled
+    if config.sql_catalog.enabled:
+        sql_catalog_routes.configure(
+            db_path=config.sql_catalog.db_path,
+            source_db_path=config.sql_catalog.source_db_path,
+        )
+        logger.info(f"SQL Catalog enabled (db_path={config.sql_catalog.db_path})")
+
     logger.info("Moniker resolution service started")
 
     yield
@@ -657,6 +666,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Mount SQL Catalog router
+app.include_router(sql_catalog_routes.router)
 
 
 @app.exception_handler(MonikerParseError)
@@ -1425,6 +1437,11 @@ async def root():
             "/telemetry/access": "POST - Report access telemetry from client",
             "/health": "Health check",
             "/ui": "Web UI for browsing the catalog",
+            "/sql/schemas": "List SQL schemas (taxonomy)",
+            "/sql/tables": "List SQL tables",
+            "/sql/statements": "List SQL statements",
+            "/sql/import": "POST - Import from source DB",
+            "/sql/summary": "SQL catalog statistics",
         },
         "ai_endpoints": {
             "/metadata/{path}": "Optimized for AI agents - includes semantic tags, relationships, cost indicators",

@@ -51,6 +51,14 @@ class CatalogConfig:
 
 
 @dataclass
+class SqlCatalogConfig:
+    """SQL Catalog configuration."""
+    enabled: bool = True
+    db_path: str = "sql_catalog.db"
+    source_db_path: str | None = None
+
+
+@dataclass
 class Config:
     """Main configuration container."""
     server: ServerConfig = field(default_factory=ServerConfig)
@@ -58,6 +66,7 @@ class Config:
     cache: CacheConfig = field(default_factory=CacheConfig)
     catalog: CatalogConfig = field(default_factory=CatalogConfig)
     auth: AuthConfig = field(default_factory=AuthConfig)
+    sql_catalog: SqlCatalogConfig = field(default_factory=SqlCatalogConfig)
 
     @classmethod
     def from_dict(cls, data: dict) -> Config:
@@ -69,6 +78,7 @@ class Config:
             cache=CacheConfig(**data.get("cache", {})),
             catalog=CatalogConfig(**data.get("catalog", {})),
             auth=AuthConfig.from_dict(auth_data) if auth_data else AuthConfig(),
+            sql_catalog=SqlCatalogConfig(**data.get("sql_catalog", {})),
         )
 
     @classmethod
