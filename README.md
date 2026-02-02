@@ -2,6 +2,33 @@
 
 A unified data access layer for enterprise data governance. Canonical identification for all firm data assets with hierarchical ownership and access telemetry.
 
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Your Code                                                      │
+│    m = Moniker("prices.equity/AAPL@20260115")                   │
+│    data = m.fetch()                                             │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ GET /resolve/prices.equity/AAPL@20260115
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Moniker Service                                                │
+│    Returns: {                                                   │
+│      "source_type": "snowflake",                                │
+│      "connection": {"account": "firm.snowflake"},               │
+│      "query": "SELECT * FROM PRICES WHERE symbol='AAPL'         │
+│               AND trade_date = TO_DATE('20260115','YYYYMMDD')"  │
+│    }                                                            │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ Client executes query
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Snowflake                                                      │
+│    → Returns price data                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ## Architecture
 
 ```
