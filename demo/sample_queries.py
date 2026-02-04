@@ -12,28 +12,33 @@ import sys
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
+# Initialize colorama for Windows support
+from colorama import init, Fore, Back, Style
+init(autoreset=True)
+
 BASE_URL = "http://localhost:8050"
 
 
 # =============================================================================
-# ANSI Color Codes
+# Color Shortcuts
 # =============================================================================
 
 class C:
-    """ANSI color codes."""
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
+    """Color shortcuts using colorama."""
+    RESET = Style.RESET_ALL
+    BOLD = Style.BRIGHT
+    DIM = Style.DIM
 
     # Colors
-    WHITE = "\033[97m"
-    ORANGE = "\033[38;5;208m"  # Domain nodes
-    RED = "\033[91m"           # Keywords like ALL
-    BLUE = "\033[94m"          # Dates @20260101
-    GREEN = "\033[92m"         # Business fields (symbol, portfolio, etc.)
-    PURPLE = "\033[95m"        # Tenors like KRD12Y
-    GRAY = "\033[90m"
-    CYAN = "\033[96m"
-    YELLOW = "\033[93m"
+    WHITE = Fore.WHITE
+    ORANGE = Fore.YELLOW  # Colorama doesn't have orange, use yellow
+    RED = Fore.RED
+    BLUE = Fore.BLUE
+    GREEN = Fore.GREEN
+    PURPLE = Fore.MAGENTA
+    GRAY = Fore.LIGHTBLACK_EX
+    CYAN = Fore.CYAN
+    YELLOW = Fore.YELLOW
 
 
 def colorize_path(path: str) -> str:
@@ -258,7 +263,8 @@ def option_9_list_children():
     result = fetch(f"/list/{moniker}")
     if result:
         print(f"  Path: {colorize_path(result['path'])}")
-        print(f"  Children: {[colorize_path(c) for c in result['children']]}")
+        children_colored = [colorize_path(c) for c in result['children']]
+        print(f"  Children: {children_colored}")
 
 
 def option_10_sample():
@@ -352,7 +358,7 @@ def option_14_list_domains():
             info = fetch(f"/describe/{domain}")
             if info:
                 desc = info.get('description', '')[:50] or info.get('display_name', domain)
-                print(f"  {i:2}. {colorize_path(domain):30} - {desc}")
+                print(f"  {i:2}. {colorize_path(domain):20} - {desc}")
             else:
                 print(f"  {i:2}. {colorize_path(domain)}")
 
@@ -427,11 +433,11 @@ def option_space():
     Client -> /fetch endpoint -> Service executes query -> Returns data
 
   {C.BOLD}Color Legend:{C.RESET}
-    {C.ORANGE}Orange{C.RESET}  - Domain/node names (prices, analytics, risk)
-    {C.RED}Red{C.RESET}     - Keywords (ALL, LATEST, ANY)
-    {C.BLUE}Blue{C.RESET}    - Dates (@20260101)
-    {C.GREEN}Green{C.RESET}   - Business fields (AAPL, EUR, portfolio)
-    {C.PURPLE}Purple{C.RESET}  - Tenors (KRD12Y, 5Y, 3M)
+    {C.ORANGE}Yellow/Orange{C.RESET} - Domain/node names (prices, analytics, risk)
+    {C.RED}Red{C.RESET}           - Keywords (ALL, LATEST, ANY)
+    {C.BLUE}Blue{C.RESET}          - Dates (@20260101)
+    {C.GREEN}Green{C.RESET}         - Business fields (AAPL, EUR, portfolio)
+    {C.PURPLE}Purple{C.RESET}        - Tenors (KRD12Y, 5Y, 3M)
 
   {C.BOLD}URLs:{C.RESET}
     Config UI: {C.CYAN}http://localhost:8050/config/ui{C.RESET}
@@ -443,40 +449,38 @@ def option_space():
 # Main Menu
 # =============================================================================
 
-def get_menu():
-    """Generate the menu with colored paths."""
-    return f"""
-{C.CYAN}╔════════════════════════════════════════════════════════════════════════════╗
-║                         MONIKER SERVICE DEMO                                 ║
-╠════════════════════════════════════════════════════════════════════════════╣{C.RESET}
-║  {C.BOLD}1.{C.RESET}  Health Check                                                          ║
-║                                                                              ║
-║  {C.GRAY}--- Resolution (returns connection info) ---{C.RESET}                              ║
-║  {C.BOLD}2.{C.RESET}  Resolve - {colorize_path('prices.equity/AAPL'):<47}  (Snowflake)     ║
-║  {C.BOLD}3.{C.RESET}  Resolve - {colorize_path('analytics.risk/var/portfolio-123'):<47}  (REST)         ║
-║  {C.BOLD}4.{C.RESET}  Resolve - {colorize_path('reference.security/ISIN/US0378331005'):<47}  (Oracle)       ║
-║                                                                              ║
-║  {C.GRAY}--- Fetch (server-side execution) ---{C.RESET}                                     ║
-║  {C.BOLD}5.{C.RESET}  Fetch   - {colorize_path('prices.equity/AAPL'):<47}                  ║
-║  {C.BOLD}6.{C.RESET}  Fetch   - {colorize_path('commodities.derivatives/crypto/ETH'):<47}                  ║
-║                                                                              ║
-║  {C.GRAY}--- Metadata & Discovery ---{C.RESET}                                              ║
-║  {C.BOLD}7.{C.RESET}  Describe - {colorize_path('analytics'):<46}                          ║
-║  {C.BOLD}8.{C.RESET}  Lineage  - {colorize_path('analytics.risk/var'):<46}                          ║
-║  {C.BOLD}9.{C.RESET}  List     - {colorize_path('reference'):<46} (children)               ║
-║  {C.BOLD}10.{C.RESET} Sample   - {colorize_path('indices.sovereign/developed/EU.GovBondAgg/EUR/ALL'):<46} ║
-║  {C.BOLD}11.{C.RESET} Metadata - {colorize_path('holdings/positions'):<46}                          ║
-║  {C.BOLD}12.{C.RESET} Tree     - {colorize_path('analytics'):<46} (hierarchy)              ║
-║                                                                              ║
-║  {C.GRAY}--- Batch & Catalog ---{C.RESET}                                                   ║
-║  {C.BOLD}13.{C.RESET} Batch Validate - Multiple monikers                                    ║
-║  {C.BOLD}14.{C.RESET} List Data Domains                                                     ║
-║  {C.BOLD}15.{C.RESET} Domain Metadata - {colorize_path('analytics'):<41}                          ║
-║  {C.BOLD}16.{C.RESET} Domain Metadata - {colorize_path('reference'):<41}                          ║
-║  {C.BOLD}17.{C.RESET} List Full Mapping                                                     ║
-║                                                                              ║
-║  {C.BOLD}SPACE{C.RESET} - Service Info    {C.BOLD}Q{C.RESET} - Quit                                          ║
-{C.CYAN}╚════════════════════════════════════════════════════════════════════════════╝{C.RESET}
+MENU = f"""
+{C.CYAN}+------------------------------------------------------------------------------+
+|                           MONIKER SERVICE DEMO                               |
++------------------------------------------------------------------------------+{C.RESET}
+|  {C.BOLD}1.{C.RESET}  Health Check                                                            |
+|                                                                              |
+|  {C.GRAY}--- Resolution (returns connection info) ---{C.RESET}                                |
+|  {C.BOLD}2.{C.RESET}  Resolve - {C.ORANGE}prices{C.RESET}.{C.GREEN}equity{C.RESET}/{C.GREEN}AAPL{C.RESET}                              (Snowflake) |
+|  {C.BOLD}3.{C.RESET}  Resolve - {C.ORANGE}analytics{C.RESET}.{C.ORANGE}risk{C.RESET}/{C.ORANGE}var{C.RESET}/portfolio-123                  (REST) |
+|  {C.BOLD}4.{C.RESET}  Resolve - {C.ORANGE}reference{C.RESET}.{C.ORANGE}security{C.RESET}/{C.GREEN}ISIN{C.RESET}/{C.GREEN}US0378331005{C.RESET}        (Oracle) |
+|                                                                              |
+|  {C.GRAY}--- Fetch (server-side execution) ---{C.RESET}                                       |
+|  {C.BOLD}5.{C.RESET}  Fetch   - {C.ORANGE}prices{C.RESET}.{C.GREEN}equity{C.RESET}/{C.GREEN}AAPL{C.RESET}                                          |
+|  {C.BOLD}6.{C.RESET}  Fetch   - {C.ORANGE}commodities{C.RESET}.{C.ORANGE}derivatives{C.RESET}/crypto/{C.GREEN}ETH{C.RESET}                        |
+|                                                                              |
+|  {C.GRAY}--- Metadata & Discovery ---{C.RESET}                                                |
+|  {C.BOLD}7.{C.RESET}  Describe - {C.ORANGE}analytics{C.RESET}                                                    |
+|  {C.BOLD}8.{C.RESET}  Lineage  - {C.ORANGE}analytics{C.RESET}.{C.ORANGE}risk{C.RESET}/{C.ORANGE}var{C.RESET}                                        |
+|  {C.BOLD}9.{C.RESET}  List     - {C.ORANGE}reference{C.RESET}                                         (children) |
+|  {C.BOLD}10.{C.RESET} Sample   - {C.ORANGE}indices{C.RESET}.{C.ORANGE}sovereign{C.RESET}/developed/EU.GovBondAgg/{C.GREEN}EUR{C.RESET}/{C.RED}{C.BOLD}ALL{C.RESET}       |
+|  {C.BOLD}11.{C.RESET} Metadata - {C.ORANGE}holdings{C.RESET}/positions                                          |
+|  {C.BOLD}12.{C.RESET} Tree     - {C.ORANGE}analytics{C.RESET}                                        (hierarchy) |
+|                                                                              |
+|  {C.GRAY}--- Batch & Catalog ---{C.RESET}                                                     |
+|  {C.BOLD}13.{C.RESET} Batch Validate - Multiple monikers                                      |
+|  {C.BOLD}14.{C.RESET} List Data Domains                                                       |
+|  {C.BOLD}15.{C.RESET} Domain Metadata - {C.ORANGE}analytics{C.RESET}                                             |
+|  {C.BOLD}16.{C.RESET} Domain Metadata - {C.ORANGE}reference{C.RESET}                                             |
+|  {C.BOLD}17.{C.RESET} List Full Mapping                                                       |
+|                                                                              |
+|  {C.BOLD}SPACE{C.RESET} - Service Info    {C.BOLD}Q{C.RESET} - Quit                                            |
+{C.CYAN}+------------------------------------------------------------------------------+{C.RESET}
 """
 
 
@@ -509,7 +513,7 @@ def main():
     print(C.CYAN + "=" * 60 + C.RESET)
 
     while True:
-        print(get_menu())
+        print(MENU)
         choice = input(f"  {C.BOLD}Select option:{C.RESET} ").strip().lower()
 
         if choice == 'q':
