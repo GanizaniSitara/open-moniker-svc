@@ -189,7 +189,7 @@ async def config_ui():
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="UI not found")
 
-    return HTMLResponse(content=index_path.read_text(), status_code=200)
+    return HTMLResponse(content=index_path.read_text(encoding="utf-8"), status_code=200)
 
 
 # =============================================================================
