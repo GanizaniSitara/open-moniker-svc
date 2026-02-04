@@ -1651,16 +1651,6 @@ _LANDING_HTML = """
                 <p>Clean, readable API reference documentation.</p>
                 <a href="/redoc">Open ReDoc</a>
             </div>
-            <div class="card docs">
-                <h2>OpenAPI Schema</h2>
-                <p>Raw OpenAPI 3.0 specification in JSON format.</p>
-                <a href="/openapi.json">View Schema</a>
-            </div>
-            <div class="card docs">
-                <h2>Health Check</h2>
-                <p>Service health, telemetry stats, and cache metrics.</p>
-                <a href="/health">Check Health</a>
-            </div>
         </div>
 
         <h3 class="section-title">API Endpoints</h3>
@@ -1679,6 +1669,16 @@ _LANDING_HTML = """
                 <h2>Catalog Paths</h2>
                 <p>List all registered catalog paths.</p>
                 <a href="/catalog">Catalog API</a>
+            </div>
+            <div class="card api">
+                <h2>OpenAPI Schema</h2>
+                <p>Raw OpenAPI 3.0 specification in JSON format.</p>
+                <a href="/openapi.json">View Schema</a>
+            </div>
+            <div class="card api">
+                <h2>Health Check</h2>
+                <p>Service health, telemetry stats, and cache metrics.</p>
+                <a href="/health">Check Health</a>
             </div>
         </div>
     </div>
