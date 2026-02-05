@@ -1267,7 +1267,7 @@
                         <span class="domain-info-label">Domain:</span>
                         <span class="domain-info-name">${escapeHtml(expectedDomain)}</span>
                         <span class="domain-info-status">Configured</span>
-                        <a href="/domains/ui" class="btn btn-sm btn-secondary" target="_blank">Edit Domain</a>
+                        <a href="/domains/ui" class="btn btn-sm btn-secondary" target="_blank">Manage Domains</a>
                     </div>
                 `;
             } else {
@@ -1275,35 +1275,10 @@
                     <div class="domain-info domain-missing">
                         <span class="domain-info-label">Domain:</span>
                         <span class="domain-info-name">${escapeHtml(expectedDomain)}</span>
-                        <span class="domain-info-status">Not configured</span>
-                        <button class="btn btn-sm btn-success" onclick="createDomain('${escapeHtml(expectedDomain)}')">Create Domain</button>
+                        <span class="domain-info-status">Not configured - create in Domains UI</span>
+                        <a href="/domains/ui" class="btn btn-sm btn-secondary" target="_blank">Manage Domains</a>
                     </div>
                 `;
-            }
-        }
-
-        async function createDomain(name) {
-            try {
-                await fetchJSON('/domains', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: name,
-                        display_name: name.charAt(0).toUpperCase() + name.slice(1),
-                        category: 'Uncategorized',
-                    }),
-                });
-                showToast(`Domain "${name}" created`, 'success');
-
-                // Reload domains and refresh tree
-                await loadDomains();
-                renderTree();
-
-                // Re-render form to update domain status
-                if (selectedPath) {
-                    await loadNode(selectedPath);
-                }
-            } catch (e) {
-                showToast('Failed to create domain: ' + e.message, 'error');
             }
         }
 
