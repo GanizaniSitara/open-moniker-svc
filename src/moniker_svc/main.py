@@ -804,6 +804,11 @@ async def resolve_moniker(
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/resolve/"):
+        path = full_path[9:]  # Strip "/resolve/"
+
     # Build full moniker string
     moniker_str = f"moniker://{path}"
     if request.query_params:
@@ -844,12 +849,18 @@ async def resolve_moniker(
 
 @app.get("/list/{path:path}", response_model=ListResponse, tags=["Catalog"])
 async def list_children(
+    request: Request,
     path: str = "",
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)] = None,
 ):
     """List children of a moniker path in the catalog hierarchy."""
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/list/"):
+        path = full_path[6:]  # Strip "/list/"
 
     moniker_str = f"moniker://{path}" if path else "moniker://"
 
@@ -863,12 +874,18 @@ async def list_children(
 
 @app.get("/describe/{path:path}", response_model=DescribeResponse, tags=["Resolution"])
 async def describe_moniker(
+    request: Request,
     path: str,
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
 ):
     """Get metadata about a moniker path including ownership, classification, and data quality info."""
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/describe/"):
+        path = full_path[10:]  # Strip "/describe/"
 
     moniker_str = f"moniker://{path}"
 
@@ -975,12 +992,18 @@ async def describe_moniker(
 
 @app.get("/lineage/{path:path}", response_model=LineageResponse, tags=["Resolution"])
 async def get_lineage(
+    request: Request,
     path: str,
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
 ):
     """Get full ownership lineage for a moniker path showing inheritance chain."""
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/lineage/"):
+        path = full_path[9:]  # Strip "/lineage/"
 
     moniker_str = f"moniker://{path}"
 
@@ -1038,6 +1061,7 @@ async def list_catalog():
 
 @app.get("/fetch/{path:path}", response_model=FetchResponse, tags=["Data Fetch"])
 async def fetch_data(
+    request: Request,
     path: str,
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
     limit: int = Query(default=100, le=10000, description="Max rows to return"),
@@ -1058,6 +1082,11 @@ async def fetch_data(
     import time
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/fetch/"):
+        path = full_path[7:]  # Strip "/fetch/"
 
     moniker_str = f"moniker://{path}"
     start_time = time.time()
@@ -1122,6 +1151,7 @@ async def fetch_data(
 
 @app.get("/metadata/{path:path}", response_model=MetadataResponse, tags=["Data Fetch"])
 async def get_metadata(
+    request: Request,
     path: str,
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
     include_sample: bool = Query(default=False, description="Include sample data"),
@@ -1143,6 +1173,11 @@ async def get_metadata(
     """
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/metadata/"):
+        path = full_path[10:]  # Strip "/metadata/"
 
     moniker_str = f"moniker://{path}"
 
@@ -1305,6 +1340,7 @@ async def get_metadata(
 
 @app.get("/sample/{path:path}", response_model=SampleDataResponse, tags=["Data Fetch"])
 async def get_sample_data(
+    request: Request,
     path: str,
     caller: Annotated[CallerIdentity, Depends(get_caller_identity)],
     limit: int = Query(default=10, le=100, description="Number of sample rows"),
@@ -1315,7 +1351,12 @@ async def get_sample_data(
     Convenience endpoint for quickly understanding data structure and content.
     Returns a small sample of actual data with column information.
     """
-    result = await fetch_data(path, caller, limit=limit)
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/sample/"):
+        path = full_path[8:]  # Strip "/sample/"
+
+    result = await fetch_data(request, path, caller, limit=limit)
 
     return SampleDataResponse(
         moniker=result.moniker,
@@ -1328,6 +1369,7 @@ async def get_sample_data(
 
 @app.get("/tree/{path:path}", response_model=TreeNodeResponse, tags=["Catalog"])
 async def get_tree(
+    request: Request,
     path: str,
     depth: int | None = Query(default=None, description="Maximum depth to traverse"),
 ):
@@ -1339,6 +1381,11 @@ async def get_tree(
     """
     if not _service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Get full path from request URL (preserves unencoded slashes)
+    full_path = request.url.path
+    if full_path.startswith("/tree/"):
+        path = full_path[6:]  # Strip "/tree/"
 
     def build_tree_node(node_path: str, current_depth: int = 0) -> TreeNodeResponse:
         # Check depth limit

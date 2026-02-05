@@ -17,7 +17,6 @@ import json
 import os
 import re
 from pathlib import Path
-from urllib.parse import quote
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
@@ -178,9 +177,7 @@ def handle_resolve(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    # URL-encode the moniker path (encode slashes too, matching Swagger behavior)
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/resolve/{encoded_moniker}")
+    result = fetch_api(f"/resolve/{moniker}")
     if result:
         print(f"  {C.BOLD}Source Type:{C.RESET} {C.ORANGE}{result['source_type']}{C.RESET}")
         print(f"  {C.BOLD}Binding Path:{C.RESET} {colorize_path(result['binding_path'])}")
@@ -206,8 +203,7 @@ def handle_fetch(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/fetch/{encoded_moniker}?limit=5")
+    result = fetch_api(f"/fetch/{moniker}?limit=5")
     if result:
         print(f"  {C.BOLD}Source Type:{C.RESET} {C.ORANGE}{result.get('source_type', 'N/A')}{C.RESET}")
         print(f"  {C.BOLD}Rows returned:{C.RESET} {C.GREEN}{result.get('row_count', 0)}{C.RESET}")
@@ -227,8 +223,7 @@ def handle_describe(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/describe/{encoded_moniker}")
+    result = fetch_api(f"/describe/{moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
         print(f"  {C.BOLD}Display Name:{C.RESET} {result.get('display_name', 'N/A')}")
@@ -249,8 +244,7 @@ def handle_lineage(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/lineage/{encoded_moniker}")
+    result = fetch_api(f"/lineage/{moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
         print(f"\n  {C.BOLD}Ownership inheritance:{C.RESET}")
@@ -266,8 +260,7 @@ def handle_list(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/list/{encoded_moniker}")
+    result = fetch_api(f"/list/{moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
         children = result.get('children', [])
@@ -282,8 +275,7 @@ def handle_sample(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/sample/{encoded_moniker}?limit=3")
+    result = fetch_api(f"/sample/{moniker}?limit=3")
     if result:
         print(f"  {C.BOLD}Columns:{C.RESET} {result.get('columns', [])}")
         print(f"  {C.BOLD}Row count:{C.RESET} {result.get('row_count', 0)}")
@@ -300,8 +292,7 @@ def handle_metadata(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/metadata/{encoded_moniker}")
+    result = fetch_api(f"/metadata/{moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
         print(f"  {C.BOLD}Display Name:{C.RESET} {result.get('display_name', 'N/A')}")
@@ -317,8 +308,7 @@ def handle_tree(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='')
-    result = fetch_api(f"/tree/{encoded_moniker}")
+    result = fetch_api(f"/tree/{moniker}")
     if result:
         def print_tree(node, indent=0):
             prefix = "  " * indent
@@ -367,8 +357,7 @@ def option_batch_validate():
     print(f"\nValidating {len(monikers)} monikers...\n")
 
     for moniker in monikers:
-        encoded_moniker = quote(moniker, safe='')
-        result = fetch_api(f"/describe/{encoded_moniker}")
+        result = fetch_api(f"/describe/{moniker}")
         print(f"  {colorize_moniker('moniker://' + moniker)}")
         if result:
             status = f"{C.GREEN}HAS SOURCE{C.RESET}" if result.get('has_source_binding') else f"{C.GRAY}NO SOURCE{C.RESET}"
