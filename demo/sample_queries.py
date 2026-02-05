@@ -3,6 +3,8 @@
 Sample Queries Demo - Interactive demonstration of the Moniker Service.
 
 Run with: python demo/sample_queries.py
+          python demo/sample_queries.py --url http://myserver:8060
+
 Requires the service to be running: python start.py
 
 ADDING NEW MONIKERS:
@@ -10,7 +12,9 @@ Edit demo_monikers.yaml in the project root. Run 'python config.py' to create
 it from sample_demo_monikers.yaml if it doesn't exist.
 """
 
+import argparse
 import json
+import os
 import re
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -20,7 +24,9 @@ import yaml
 from colorama import init, Fore, Style
 init(autoreset=True)
 
-BASE_URL = "http://localhost:8060"
+# Default URL - can be overridden by env var or command line
+DEFAULT_URL = "http://localhost:8060"
+BASE_URL = os.environ.get("MONIKER_SERVICE_URL", DEFAULT_URL)
 
 # Global - populated at startup
 DEMO_MONIKERS: list[dict] = []
@@ -399,7 +405,7 @@ def option_configure_domains():
 
             print(f"  - {colorize_path(d['name']):15} {d.get('short_code', ''):5} - {d.get('display_name', '')}{conf_badge}{pii_badge}")
 
-        print(f"\n  {C.BOLD}Domain Config UI:{C.RESET} {C.CYAN}http://localhost:8060/domains/ui{C.RESET}")
+        print(f"\n  {C.BOLD}Domain Config UI:{C.RESET} {C.CYAN}{BASE_URL}/domains/ui{C.RESET}")
 
 
 def option_info():
@@ -431,10 +437,10 @@ def option_info():
     {C.PURPLE}Purple{C.RESET}        - Tenors (KRD12Y, 5Y, 3M)
 
   {C.BOLD}URLs:{C.RESET}
-    Catalog UI:   {C.CYAN}http://localhost:8060/ui{C.RESET}
-    Config UI:    {C.CYAN}http://localhost:8060/config/ui{C.RESET}
-    Domains UI:   {C.CYAN}http://localhost:8060/domains/ui{C.RESET}
-    Swagger/API:  {C.CYAN}http://localhost:8060/docs{C.RESET}
+    Catalog UI:   {C.CYAN}{BASE_URL}/ui{C.RESET}
+    Config UI:    {C.CYAN}{BASE_URL}/config/ui{C.RESET}
+    Domains UI:   {C.CYAN}{BASE_URL}/domains/ui{C.RESET}
+    Swagger/API:  {C.CYAN}{BASE_URL}/docs{C.RESET}
 """)
 
 
@@ -525,12 +531,38 @@ def run_option(options: dict, choice: str):
 # Main
 # =============================================================================
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Interactive demo for the Moniker Service",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python demo/sample_queries.py
+  python demo/sample_queries.py --url http://myserver:8060
+  MONIKER_SERVICE_URL=http://myserver:8060 python demo/sample_queries.py
+        """
+    )
+    parser.add_argument(
+        "--url", "-u",
+        default=None,
+        help=f"Service URL (default: $MONIKER_SERVICE_URL or {DEFAULT_URL})"
+    )
+    return parser.parse_args()
+
+
 def main():
-    global DEMO_MONIKERS
+    global DEMO_MONIKERS, BASE_URL
+
+    args = parse_args()
+
+    # Override BASE_URL if provided via command line
+    if args.url:
+        BASE_URL = args.url
 
     print("\n" + C.CYAN + "=" * 60 + C.RESET)
     print(f"  {C.BOLD}Moniker Service Demo{C.RESET}")
-    print(f"  Ensure service is running: {C.CYAN}python start.py{C.RESET}")
+    print(f"  Service: {C.CYAN}{BASE_URL}{C.RESET}")
     print(C.CYAN + "=" * 60 + C.RESET)
 
     # Load monikers from YAML
