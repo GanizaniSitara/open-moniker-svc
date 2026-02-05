@@ -63,7 +63,8 @@ def colorize_path(path: str) -> str:
     keyword_pattern = re.compile(r'^(ALL|LATEST|ANY)$', re.IGNORECASE)
     business_fields = {'AAPL', 'MSFT', 'GOOG', 'TSLA', 'ETH', 'BTC', 'EUR', 'USD', 'GBP', 'DKK',
                        'portfolio', 'fund', 'account', 'ISIN', 'CUSIP', 'SEDOL',
-                       'equity', 'bond', 'fx', 'rates', 'credit', 'commodity', 'bitcoin'}
+                       'equity', 'bond', 'fx', 'rates', 'credit', 'commodity', 'bitcoin',
+                       'currencies'}
     domain_keywords = {'prices', 'analytics', 'reference', 'holdings', 'indices', 'index',
                        'commodities', 'commods', 'instruments', 'reports', 'risk', 'security',
                        'sovereign', 'derivatives', 'calendars', 'regulatory', 'var', 'views',
@@ -461,38 +462,18 @@ def build_menu():
         "",
     ]
 
-    section_names = {
-        'resolve': "Resolution (returns connection info)",
-        'fetch': "Fetch (server-side execution)",
-        'describe': "Metadata & Discovery",
-        'lineage': "Metadata & Discovery",
-        'list': "Metadata & Discovery",
-        'sample': "Metadata & Discovery",
-        'metadata': "Metadata & Discovery",
-        'tree': "Metadata & Discovery",
-    }
-
     options = {}
     option_num = 1
-    current_section = None
 
     for item in DEMO_MONIKERS:
-        action = item['action']
-        section = section_names.get(action, "Other")
-
-        if section != current_section:
-            lines.append(f"\n  {C.GRAY}{section}{C.RESET}")
-            current_section = section
-
         moniker_colored = colorize_moniker(item['moniker'])
-        lines.append(f"  {C.BOLD}{option_num:2}.{C.RESET} {C.DIM}{action[:3].upper()}{C.RESET} {moniker_colored}")
+        lines.append(f"  {C.BOLD}{option_num:2}.{C.RESET} {moniker_colored}")
 
         options[str(option_num)] = (item['action'], item['moniker'], item.get('note', ''), item['desc'])
         option_num += 1
 
     lines.extend([
         "",
-        f"  {C.GRAY}Batch & Catalog{C.RESET}",
         f"  {C.BOLD}B.{C.RESET}  Batch Validate",
         f"  {C.BOLD}D.{C.RESET}  List Data Domains",
         f"  {C.BOLD}C.{C.RESET}  Configure Domains",
