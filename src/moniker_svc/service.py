@@ -267,6 +267,7 @@ class MonikerService:
             Raw values:
                 {path}              - Full sub-path after the binding
                 {segments[N]}       - Specific path segment (0-indexed)
+                {segments[N]:date}  - Segment N formatted as date (YYYYMMDD → YYYY-MM-DD)
                 {version}           - Version from @suffix (raw string)
                 {revision}          - Revision from /vN suffix
                 {namespace}         - Namespace prefix if provided
@@ -297,6 +298,8 @@ class MonikerService:
                                       "20260115" → TO_DATE('20260115','YYYYMMDD')
                 {lookback_start_sql} - Dialect-specific lookback SQL (e.g., DATEADD('MONTH', -3, ...))
                 {date_filter:col}   - Complete WHERE clause for lookback on column col
+                {segment_date_sql[N]} - Segment N as dialect-aware SQL date
+                                      "20260101" → TO_DATE('20260101', 'YYYYMMDD') for Oracle
 
             Segment filters:
                 {filter[N]:col}     - SQL filter for segment N on column col
@@ -392,6 +395,31 @@ class MonikerService:
             return ""
 
         result = re.sub(r"\{segments\[(\d+)\]\}", replace_segment, result)
+
+        # Handle {segments[N]:date} patterns - formats YYYYMMDD as YYYY-MM-DD
+        def replace_segment_date(match: re.Match) -> str:
+            idx = int(match.group(1))
+            if 0 <= idx < len(segments):
+                seg = segments[idx]
+                # Try to format as date if it looks like YYYYMMDD
+                if len(seg) == 8 and seg.isdigit():
+                    return f"{seg[:4]}-{seg[4:6]}-{seg[6:8]}"
+                return seg  # Return as-is if not a date format
+            return ""
+
+        result = re.sub(r"\{segments\[(\d+)\]:date\}", replace_segment_date, result)
+
+        # Handle {segment_date_sql[N]} patterns - dialect-aware SQL date expression
+        def replace_segment_date_sql(match: re.Match) -> str:
+            idx = int(match.group(1))
+            if 0 <= idx < len(segments):
+                seg = segments[idx]
+                if len(seg) == 8 and seg.isdigit():
+                    return dialect.date_literal(seg)
+                return f"'{seg}'"  # Return as string literal if not a date
+            return "NULL"
+
+        result = re.sub(r"\{segment_date_sql\[(\d+)\]\}", replace_segment_date_sql, result)
 
         # Handle {is_all[N]} patterns
         def replace_is_all(match: re.Match) -> str:

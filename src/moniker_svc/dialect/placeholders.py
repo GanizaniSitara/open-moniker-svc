@@ -179,6 +179,20 @@ PLACEHOLDERS: dict[str, PlaceholderInfo] = {
         example_output="true",
         category="segment",
     ),
+    "segments[N]:date": PlaceholderInfo(
+        name="segments[N]:date",
+        description="Path segment formatted as date (YYYYMMDD → YYYY-MM-DD)",
+        example_input="risk/20260101/100 with {segments[0]:date}",
+        example_output="2026-01-01",
+        category="segment",
+    ),
+    "segment_date_sql[N]": PlaceholderInfo(
+        name="segment_date_sql[N]",
+        description="Path segment as dialect-aware SQL date expression",
+        example_input="risk/20260101/100 with {segment_date_sql[0]}",
+        example_output="TO_DATE('20260101', 'YYYYMMDD')",
+        category="dialect",
+    ),
 }
 
 # Backward compatibility aliases
