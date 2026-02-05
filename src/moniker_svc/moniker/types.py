@@ -14,15 +14,20 @@ class VersionType(Enum):
     Examples:
         @20260101 -> DATE
         @latest -> LATEST
-        @3M, @12Y, @1W -> TENOR
+        @3M, @12Y, @1W -> LOOKBACK (historical lookback period)
+        @daily, @weekly, @monthly -> FREQUENCY (time series granularity)
         @all -> ALL
         @anything_else -> CUSTOM
     """
-    DATE = "date"       # @20260101 (YYYYMMDD format)
-    LATEST = "latest"   # @latest
-    TENOR = "tenor"     # @3M, @12Y, @1W, @5D (duration)
-    ALL = "all"         # @all (full time series)
-    CUSTOM = "custom"   # Source-specific version identifier
+    DATE = "date"           # @20260101 (YYYYMMDD format)
+    LATEST = "latest"       # @latest
+    LOOKBACK = "lookback"   # @3M, @12Y, @1W, @5D (lookback period)
+    FREQUENCY = "frequency" # @daily, @weekly, @monthly
+    ALL = "all"             # @all (full time series)
+    CUSTOM = "custom"       # Source-specific version identifier
+
+    # Backward compatibility alias
+    TENOR = LOOKBACK
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,16 +232,32 @@ class Moniker:
         return None
 
     @property
-    def version_tenor(self) -> tuple[int, str] | None:
-        """Extract tenor components if version is a tenor (e.g., 3M -> (3, 'M')).
+    def version_lookback(self) -> tuple[int, str] | None:
+        """Extract lookback components if version is a lookback period (e.g., 3M -> (3, 'M')).
 
         Returns:
-            Tuple of (value, unit) where unit is Y/M/W/D, or None if not a tenor.
+            Tuple of (value, unit) where unit is Y/M/W/D, or None if not a lookback.
         """
-        if self.version_type == VersionType.TENOR and self.version:
+        if self.version_type == VersionType.LOOKBACK and self.version:
             match = re.match(r"^(\d+)([YMWD])$", self.version, re.IGNORECASE)
             if match:
                 return (int(match.group(1)), match.group(2).upper())
+        return None
+
+    @property
+    def version_tenor(self) -> tuple[int, str] | None:
+        """Backward compatibility alias for version_lookback."""
+        return self.version_lookback
+
+    @property
+    def version_frequency(self) -> str | None:
+        """Extract frequency if version is a frequency specifier.
+
+        Returns:
+            Frequency string (daily, weekly, monthly) or None if not a frequency.
+        """
+        if self.version_type == VersionType.FREQUENCY and self.version:
+            return self.version.lower()
         return None
 
     @property

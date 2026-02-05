@@ -27,16 +27,20 @@ VERSION_PATTERN = re.compile(r"^[a-zA-Z0-9]+$")
 REVISION_PATTERN = re.compile(r"^[vV](\d+)$")
 
 # Version classification patterns
-DATE_VERSION_PATTERN = re.compile(r"^\d{8}$")              # 20260101 (YYYYMMDD)
-TENOR_VERSION_PATTERN = re.compile(r"^\d+[YMWD]$", re.I)   # 3M, 12Y, 1W, 5D
+DATE_VERSION_PATTERN = re.compile(r"^\d{8}$")                  # 20260101 (YYYYMMDD)
+LOOKBACK_VERSION_PATTERN = re.compile(r"^\d+[YMWD]$", re.I)    # 3M, 12Y, 1W, 5D
+FREQUENCY_VERSION_PATTERN = re.compile(r"^(daily|weekly|monthly)$", re.I)
 KEYWORD_VERSION_PATTERN = re.compile(r"^(latest|all)$", re.I)
+
+# Backward compatibility alias
+TENOR_VERSION_PATTERN = LOOKBACK_VERSION_PATTERN
 
 
 def classify_version(version: str | None) -> VersionType | None:
     """Determine the semantic type of a version string.
 
     Args:
-        version: The version string to classify (e.g., "20260101", "latest", "3M")
+        version: The version string to classify (e.g., "20260101", "latest", "3M", "daily")
 
     Returns:
         VersionType enum value, or None if version is None/empty
@@ -45,8 +49,10 @@ def classify_version(version: str | None) -> VersionType | None:
         return None
     if DATE_VERSION_PATTERN.match(version):
         return VersionType.DATE
-    if TENOR_VERSION_PATTERN.match(version):
-        return VersionType.TENOR
+    if LOOKBACK_VERSION_PATTERN.match(version):
+        return VersionType.LOOKBACK
+    if FREQUENCY_VERSION_PATTERN.match(version):
+        return VersionType.FREQUENCY
     if KEYWORD_VERSION_PATTERN.match(version):
         return VersionType.LATEST if version.lower() == "latest" else VersionType.ALL
     return VersionType.CUSTOM

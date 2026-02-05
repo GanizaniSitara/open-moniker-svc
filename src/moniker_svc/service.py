@@ -21,6 +21,7 @@ from .cache.memory import InMemoryCache
 from .catalog.registry import CatalogRegistry
 from .catalog.types import CatalogNode, ResolvedOwnership, SourceBinding
 from .config import Config
+from .dialect import get_dialect
 from .moniker.parser import parse_moniker, MonikerParseError
 from .moniker.types import Moniker, VersionType
 from .telemetry.emitter import TelemetryEmitter
@@ -273,19 +274,31 @@ class MonikerService:
                 {sub_resource}      - Sub-resource path after @version (e.g., "details.corporate.actions")
 
             Version type placeholders:
-                {version_type}      - Semantic type: "date", "latest", "tenor", "all", "custom", or ""
+                {version_type}      - Semantic type: "date", "latest", "lookback", "frequency", "all", "custom", or ""
                 {is_date}           - "true" if version is a date (YYYYMMDD), else "false"
                 {is_latest}         - "true" if version is "latest", else "false"
-                {is_tenor}          - "true" if version is a tenor (3M, 12Y), else "false"
+                {is_lookback}       - "true" if version is a lookback period (3M, 12Y), else "false"
+                {is_frequency}      - "true" if version is a frequency (daily, weekly, monthly), else "false"
                 {is_all}            - "true" if version is "all", else "false"
-                {tenor_value}       - Numeric part of tenor (e.g., "3" from "3M"), or ""
-                {tenor_unit}        - Unit part of tenor (Y/M/W/D), or ""
+                {lookback_value}    - Numeric part of lookback (e.g., "3" from "3M"), or ""
+                {lookback_unit}     - Unit part of lookback (Y/M/W/D), or ""
+                {frequency}         - Frequency value (daily, weekly, monthly), or ""
 
-            SQL-translated values:
+            Backward-compatible aliases:
+                {is_tenor}          - Alias for {is_lookback}
+                {tenor_value}       - Alias for {lookback_value}
+                {tenor_unit}        - Alias for {lookback_unit}
+
+            Dialect-aware SQL expressions:
+                {current_date}      - Dialect-specific current date (e.g., CURRENT_DATE(), SYSDATE)
                 {version_date}      - SQL date expression for version
-                                      "" → CURRENT_DATE / SYSDATE
+                                      "" → {current_date}
                                       "latest" → subquery placeholder
                                       "20260115" → TO_DATE('20260115','YYYYMMDD')
+                {lookback_start_sql} - Dialect-specific lookback SQL (e.g., DATEADD('MONTH', -3, ...))
+                {date_filter:col}   - Complete WHERE clause for lookback on column col
+
+            Segment filters:
                 {filter[N]:col}     - SQL filter for segment N on column col
                                       "ALL" → "1=1" (match all)
                                       "AAPL" → "col = 'AAPL'"
@@ -297,36 +310,47 @@ class MonikerService:
         segments = path.split("/") if path else []
         version = moniker.version or ""
 
-        # Determine SQL dialect
-        is_oracle = source_type == "oracle"
-
-        # SQL date translation
-        if not version:
-            version_date = "SYSDATE" if is_oracle else "CURRENT_DATE()"
-        elif version.lower() == "latest":
-            # Placeholder - query author should use MAX() subquery
-            version_date = "'__LATEST__'"
-        elif version.isdigit() and len(version) == 8:
-            if is_oracle:
-                version_date = f"TO_DATE('{version}', 'YYYYMMDD')"
-            else:
-                version_date = f"TO_DATE('{version}', 'YYYYMMDD')"
-        else:
-            version_date = f"'{version}'"
+        # Get dialect for this source type
+        dialect = get_dialect(source_type)
 
         # Compute version type flags
         version_type = moniker.version_type
         is_date = version_type == VersionType.DATE
         is_latest = version_type == VersionType.LATEST
-        is_tenor = version_type == VersionType.TENOR
+        is_lookback = version_type == VersionType.LOOKBACK
+        is_frequency = version_type == VersionType.FREQUENCY
         is_all_version = version_type == VersionType.ALL
 
-        # Extract tenor components if applicable
-        tenor_value = ""
-        tenor_unit = ""
-        if is_tenor and moniker.version_tenor:
-            tenor_value = str(moniker.version_tenor[0])
-            tenor_unit = moniker.version_tenor[1]
+        # Extract lookback components if applicable
+        lookback_value = ""
+        lookback_unit = ""
+        if is_lookback and moniker.version_lookback:
+            lookback_value = str(moniker.version_lookback[0])
+            lookback_unit = moniker.version_lookback[1]
+
+        # Extract frequency if applicable
+        frequency = moniker.version_frequency or ""
+
+        # Dialect-aware current date
+        current_date_sql = dialect.current_date()
+
+        # SQL date translation using dialect
+        if not version:
+            version_date = current_date_sql
+        elif is_latest:
+            version_date = dialect.latest_subquery_hint()
+        elif is_date:
+            version_date = dialect.date_literal(version)
+        elif is_lookback and lookback_value and lookback_unit:
+            # For lookback, version_date returns the lookback start
+            version_date = dialect.lookback_start(int(lookback_value), lookback_unit)
+        else:
+            version_date = f"'{version}'"
+
+        # Generate lookback_start_sql
+        lookback_start_sql = ""
+        if is_lookback and lookback_value and lookback_unit:
+            lookback_start_sql = dialect.lookback_start(int(lookback_value), lookback_unit)
 
         # Build substitution dict
         subs = {
@@ -341,10 +365,21 @@ class MonikerService:
             "version_type": version_type.value if version_type else "",
             "is_date": "true" if is_date else "false",
             "is_latest": "true" if is_latest else "false",
-            "is_tenor": "true" if is_tenor else "false",
+            "is_lookback": "true" if is_lookback else "false",
+            "is_frequency": "true" if is_frequency else "false",
             "is_all": "true" if is_all_version else "false",
-            "tenor_value": tenor_value,
-            "tenor_unit": tenor_unit,
+            # Lookback components
+            "lookback_value": lookback_value,
+            "lookback_unit": lookback_unit,
+            # Frequency
+            "frequency": frequency,
+            # Dialect-aware SQL
+            "current_date": current_date_sql,
+            "lookback_start_sql": lookback_start_sql,
+            # Backward compatibility aliases
+            "is_tenor": "true" if is_lookback else "false",
+            "tenor_value": lookback_value,
+            "tenor_unit": lookback_unit,
         }
 
         result = template
@@ -374,12 +409,26 @@ class MonikerService:
             if 0 <= idx < len(segments):
                 seg_value = segments[idx]
                 if seg_value.upper() == "ALL":
-                    return "1=1"  # Match everything
+                    return dialect.no_filter()
                 else:
                     return f"{col} = '{seg_value}'"
-            return "1=1"
+            return dialect.no_filter()
 
         result = re.sub(r"\{filter\[(\d+)\]:(\w+)\}", replace_filter, result)
+
+        # Handle {date_filter:column} patterns - generates complete lookback WHERE clause
+        def replace_date_filter(match: re.Match) -> str:
+            col = match.group(1)
+            if is_lookback and lookback_value and lookback_unit:
+                return dialect.date_filter(col, int(lookback_value), lookback_unit)
+            elif is_all_version:
+                return dialect.no_filter()
+            elif is_date:
+                return f"{col} = {version_date}"
+            else:
+                return dialect.no_filter()
+
+        result = re.sub(r"\{date_filter:(\w+)\}", replace_date_filter, result)
 
         # Handle simple placeholders
         for key, value in subs.items():
