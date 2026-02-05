@@ -317,7 +317,7 @@ def handle_tree(moniker: str, note: str = ""):
         def print_tree(node, indent=0):
             prefix = "  " * indent
             name = colorize_path(node['name'])
-            source = f" [{C.ORANGE}{node.get('source_type')}{C.RESET}]" if node.get('source_type') else ""
+            source = f" {C.ORANGE}{node.get('source_type')}{C.RESET}" if node.get('source_type') else ""
             print(f"{prefix}- {name}/{source}")
             for child in node.get('children', []):
                 print_tree(child, indent + 1)
@@ -481,18 +481,18 @@ def build_menu():
         section = section_names.get(action, "Other")
 
         if section != current_section:
-            lines.append(f"  {C.GRAY}--- {section} ---{C.RESET}")
+            lines.append(f"\n  {C.GRAY}{section}{C.RESET}")
             current_section = section
 
         moniker_colored = colorize_moniker(item['moniker'])
-        lines.append(f"  {C.BOLD}{option_num:2}.{C.RESET} [{action[:3].upper()}] {moniker_colored}")
+        lines.append(f"  {C.BOLD}{option_num:2}.{C.RESET} {C.DIM}{action[:3].upper()}{C.RESET} {moniker_colored}")
 
         options[str(option_num)] = (item['action'], item['moniker'], item.get('note', ''), item['desc'])
         option_num += 1
 
     lines.extend([
         "",
-        f"  {C.GRAY}--- Batch & Catalog ---{C.RESET}",
+        f"  {C.GRAY}Batch & Catalog{C.RESET}",
         f"  {C.BOLD}B.{C.RESET}  Batch Validate",
         f"  {C.BOLD}D.{C.RESET}  List Data Domains",
         f"  {C.BOLD}C.{C.RESET}  Configure Domains",
