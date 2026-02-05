@@ -178,8 +178,8 @@ def handle_resolve(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    # URL-encode the moniker path (preserve slashes as path separators)
-    encoded_moniker = quote(moniker, safe='/')
+    # URL-encode the moniker path (encode slashes too, matching Swagger behavior)
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/resolve/{encoded_moniker}")
     if result:
         print(f"  {C.BOLD}Source Type:{C.RESET} {C.ORANGE}{result['source_type']}{C.RESET}")
@@ -206,7 +206,7 @@ def handle_fetch(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/fetch/{encoded_moniker}?limit=5")
     if result:
         print(f"  {C.BOLD}Source Type:{C.RESET} {C.ORANGE}{result.get('source_type', 'N/A')}{C.RESET}")
@@ -227,7 +227,7 @@ def handle_describe(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/describe/{encoded_moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
@@ -249,7 +249,7 @@ def handle_lineage(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/lineage/{encoded_moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
@@ -266,7 +266,7 @@ def handle_list(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/list/{encoded_moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
@@ -282,7 +282,7 @@ def handle_sample(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/sample/{encoded_moniker}?limit=3")
     if result:
         print(f"  {C.BOLD}Columns:{C.RESET} {result.get('columns', [])}")
@@ -300,7 +300,7 @@ def handle_metadata(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/metadata/{encoded_moniker}")
     if result:
         print(f"  {C.BOLD}Path:{C.RESET} {colorize_path(result['path'])}")
@@ -317,7 +317,7 @@ def handle_tree(moniker: str, note: str = ""):
     if note:
         print(f"{C.GRAY}{note}{C.RESET}\n")
 
-    encoded_moniker = quote(moniker, safe='/')
+    encoded_moniker = quote(moniker, safe='')
     result = fetch_api(f"/tree/{encoded_moniker}")
     if result:
         def print_tree(node, indent=0):
@@ -367,7 +367,7 @@ def option_batch_validate():
     print(f"\nValidating {len(monikers)} monikers...\n")
 
     for moniker in monikers:
-        encoded_moniker = quote(moniker, safe='/')
+        encoded_moniker = quote(moniker, safe='')
         result = fetch_api(f"/describe/{encoded_moniker}")
         print(f"  {colorize_moniker('moniker://' + moniker)}")
         if result:
