@@ -458,9 +458,9 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Category</th>
                             <th>Domain</th>
                             <th>Display Name</th>
-                            <th>Category</th>
                             <th>Owner</th>
                             <th>Tech Custodian</th>
                             <th>Business Steward</th>
@@ -637,17 +637,20 @@
                 return;
             }
 
-            // Sort domains by id if present
+            // Sort domains by category then display_name
             const sortedDomains = [...domains].sort((a, b) => {
-                if (a.id !== null && b.id !== null) return a.id - b.id;
-                if (a.id !== null) return -1;
-                if (b.id !== null) return 1;
-                return a.name.localeCompare(b.name);
+                const catA = (a.data_category || '').toLowerCase();
+                const catB = (b.data_category || '').toLowerCase();
+                if (catA !== catB) return catA.localeCompare(catB);
+                const nameA = (a.display_name || a.name || '').toLowerCase();
+                const nameB = (b.display_name || b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
             });
 
             tbody.innerHTML = sortedDomains.map((d, index) => `
                 <tr data-name="${d.name}">
                     <td style="text-align: center; font-weight: bold; color: var(--c-gray);">${d.id !== null ? d.id : (index + 1)}</td>
+                    <td class="editable" data-field="data_category" contenteditable="true">${escapeHtml(d.data_category)}</td>
                     <td>
                         <div class="domain-name">
                             <span class="domain-color-dot" style="background: ${d.color}"></span>
@@ -655,7 +658,6 @@
                         </div>
                     </td>
                     <td class="editable" data-field="display_name" contenteditable="true">${escapeHtml(d.display_name)}</td>
-                    <td class="editable" data-field="data_category" contenteditable="true">${escapeHtml(d.data_category)}</td>
                     <td class="editable truncate" data-field="owner" contenteditable="true" title="${escapeHtml(d.owner)}">${escapeHtml(d.owner)}</td>
                     <td class="editable truncate" data-field="tech_custodian" contenteditable="true" title="${escapeHtml(d.tech_custodian)}">${escapeHtml(d.tech_custodian)}</td>
                     <td class="editable truncate" data-field="business_steward" contenteditable="true" title="${escapeHtml(d.business_steward)}">${escapeHtml(d.business_steward)}</td>
