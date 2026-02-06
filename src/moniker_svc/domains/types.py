@@ -67,7 +67,7 @@ class Domain:
 
         return cls(
             name=name,
-            display_name=data.get("display_name", ""),
+            display_name=data.get("display_name") or name,  # Default to name if empty
             id=id_val,
             short_code=data.get("short_code", ""),
             data_category=data.get("data_category", ""),

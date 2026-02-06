@@ -164,11 +164,11 @@ async def create_domain(request: CreateDomainRequest):
     if registry.exists(request.name):
         raise HTTPException(status_code=409, detail=f"Domain already exists: {request.name}")
 
-    # Create the domain
+    # Create the domain (use name as display_name if not provided)
     domain = Domain(
         name=request.name,
         id=request.id,
-        display_name=request.display_name,
+        display_name=request.display_name or request.name,
         short_code=request.short_code,
         data_category=request.data_category,
         color=request.color,
@@ -203,10 +203,12 @@ async def update_domain(name: str, request: UpdateDomainRequest):
         raise HTTPException(status_code=404, detail=f"Domain not found: {name}")
 
     # Build updated domain (only update fields that are not None)
+    # Ensure display_name is never empty - fall back to name
+    updated_display_name = request.display_name if request.display_name is not None else existing.display_name
     domain = Domain(
         name=name,
         id=request.id if request.id is not None else existing.id,
-        display_name=request.display_name if request.display_name is not None else existing.display_name,
+        display_name=updated_display_name or name,
         short_code=request.short_code if request.short_code is not None else existing.short_code,
         data_category=request.data_category if request.data_category is not None else existing.data_category,
         color=request.color if request.color is not None else existing.color,
