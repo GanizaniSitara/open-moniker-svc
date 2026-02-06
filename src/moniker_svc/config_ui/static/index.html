@@ -215,6 +215,54 @@
             text-decoration: underline wavy rgba(255,255,255,0.7);
         }
 
+        /* Category filter chips */
+        .category-bar {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: var(--color-bg);
+        }
+        .category-chip {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            white-space: nowrap;
+            color: var(--c-gray);
+            transition: all 0.15s;
+        }
+        .category-chip:hover {
+            border-color: var(--c-peacock);
+            color: var(--c-peacock);
+        }
+        .category-chip.active {
+            background: var(--c-peacock);
+            border-color: var(--c-peacock);
+            color: white;
+        }
+        .category-chip.all {
+            background: var(--c-navy);
+            border-color: var(--c-navy);
+            color: white;
+        }
+        .category-chip.all:not(.active) {
+            background: white;
+            color: var(--c-navy);
+            border-color: var(--c-navy);
+        }
+
+        /* Filtered out nodes */
+        .node.filtered-out {
+            display: none;
+        }
+        li.filtered-out {
+            display: none;
+        }
+
         /* Domain info banner in form */
         .domain-info {
             display: flex;
@@ -856,6 +904,9 @@
                     <button class="btn btn-sm btn-secondary" onclick="collapseAll()">Collapse</button>
                 </div>
             </div>
+            <div id="category-bar" class="category-bar" style="display: none;">
+                <!-- Categories populated by JS -->
+            </div>
             <div class="search-box" style="padding: 8px; border-bottom: 1px solid var(--border);">
                 <input type="text" id="search-input" placeholder="Search catalog..."
                        style="width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px;"
@@ -932,6 +983,7 @@
 
         // Domain state (for checking if top-level nodes have domain mappings)
         let domainsData = [];  // Full domain objects sorted by category, then name
+        let activeCategory = null;  // Active category filter
 
         // Placeholder state
         let placeholderPanelVisible = false;
@@ -1013,10 +1065,69 @@
                     if (catA !== catB) return catA.localeCompare(catB);
                     return (a.name || '').localeCompare(b.name || '');
                 });
+
+                // Build category bar
+                const categories = new Map();
+                domainsData.forEach(d => {
+                    const cat = d.data_category || 'Uncategorized';
+                    if (!categories.has(cat)) categories.set(cat, []);
+                    categories.get(cat).push(d.name);
+                });
+
+                // Render category chips if we have multiple categories
+                if (categories.size > 1) {
+                    const bar = document.getElementById('category-bar');
+                    let html = '<span class="category-chip all active" onclick="filterByCategory(null)">All</span>';
+                    [...categories.keys()].sort().forEach(cat => {
+                        html += `<span class="category-chip" onclick="filterByCategory('${cat}')">${cat}</span>`;
+                    });
+                    bar.innerHTML = html;
+                    bar.style.display = 'flex';
+                }
             } catch (e) {
                 console.error('Failed to load domains:', e);
                 domainsData = [];
             }
+        }
+
+        function filterByCategory(category) {
+            activeCategory = category;
+
+            // Update chip styles
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.classList.remove('active');
+                if (category === null && chip.classList.contains('all')) {
+                    chip.classList.add('active');
+                } else if (chip.textContent === category) {
+                    chip.classList.add('active');
+                }
+            });
+
+            // Get domains in this category
+            const domainsInCategory = category === null
+                ? null  // Show all
+                : domainsData.filter(d => (d.data_category || 'Uncategorized') === category).map(d => d.name);
+
+            // Filter tree nodes
+            document.querySelectorAll('#tree > ul > li').forEach(li => {
+                const nodeName = li.querySelector('.node-name')?.textContent;
+                if (!nodeName) return;
+
+                // Find the node data
+                const node = nodes.find(n => n.path === nodeName);
+                const nodeDomain = node?.domain;
+
+                if (domainsInCategory === null) {
+                    // Show all
+                    li.classList.remove('filtered-out');
+                } else if (nodeDomain && domainsInCategory.includes(nodeDomain)) {
+                    // Node's domain is in this category
+                    li.classList.remove('filtered-out');
+                } else {
+                    // Hide
+                    li.classList.add('filtered-out');
+                }
+            });
         }
 
         async function loadNode(path) {
@@ -1172,6 +1283,11 @@
             }
 
             container.innerHTML = '<ul>' + renderTreeLevel(tree, true) + '</ul>';
+
+            // Re-apply category filter if active
+            if (activeCategory !== null) {
+                filterByCategory(activeCategory);
+            }
         }
 
         function renderTreeLevel(level, isTopLevel = false) {
