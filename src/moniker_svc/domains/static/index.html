@@ -445,7 +445,6 @@
                     </div>
                 </div>
                 <button class="btn" onclick="showAddModal()">+ Add Domain</button>
-                <button class="btn btn-success" onclick="saveDomains()">Save to YAML</button>
                 <button class="btn btn-secondary" onclick="reloadDomains()">Reload</button>
             </div>
         </div>
@@ -716,6 +715,9 @@
                     body: JSON.stringify(payload)
                 });
 
+                // Auto-persist to YAML
+                await fetchJSON(`${API_BASE}/save`, { method: 'POST' });
+
                 // Update local data
                 const domain = domains.find(d => d.name === name);
                 if (domain) domain[field] = value;
@@ -838,15 +840,17 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    showToast('Domain updated', 'success');
                 } else {
                     await fetchJSON(API_BASE, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    showToast('Domain created', 'success');
                 }
+
+                // Auto-persist to YAML
+                await fetchJSON(`${API_BASE}/save`, { method: 'POST' });
+                showToast(editingDomain ? 'Domain updated' : 'Domain created', 'success');
 
                 closeModal();
                 loadDomains();
@@ -862,6 +866,8 @@
 
             try {
                 await fetchJSON(`${API_BASE}/${name}`, { method: 'DELETE' });
+                // Auto-persist to YAML
+                await fetchJSON(`${API_BASE}/save`, { method: 'POST' });
                 showToast('Domain deleted', 'success');
                 loadDomains();
             } catch (e) {

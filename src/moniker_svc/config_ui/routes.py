@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -333,24 +334,25 @@ async def save_to_yaml():
     catalog_dict = serializer.serialize_catalog(nodes)
 
     # Write to the same file we loaded from (catalog.yaml), not catalog_output.yaml
-    print(f"[SAVE] _catalog_definition_file={_catalog_definition_file}")
-    print(f"[SAVE] _yaml_output_path={_yaml_output_path}")
     output_path = Path(_catalog_definition_file or _yaml_output_path)
-    abs_path = output_path.absolute()
-    print(f"[SAVE] Writing {len(nodes)} nodes to: {abs_path}")
-    print(f"[SAVE] Node paths: {[n.path for n in nodes]}")
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            yaml.dump(catalog_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    abs_path = output_path.resolve()
 
-        print(f"[SAVE] SUCCESS - wrote to {abs_path}")
-        logger.info(f"Saved catalog to {abs_path} ({len(nodes)} nodes)")
+    logger.info(f"[SAVE] definition_file={_catalog_definition_file}, output_path={_yaml_output_path}")
+    logger.info(f"[SAVE] Writing {len(nodes)} nodes to: {abs_path}")
+
+    try:
+        with open(abs_path, "w", encoding="utf-8") as f:
+            yaml.dump(catalog_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            f.flush()
+            os.fsync(f.fileno())
+
+        logger.info(f"[SAVE] SUCCESS - wrote to {abs_path}")
 
         return SaveResponse(
             success=True,
-            path=str(output_path.absolute()),
+            path=str(abs_path),
             node_count=len(nodes),
-            message=f"Saved {len(nodes)} nodes to {output_path}",
+            message=f"Saved {len(nodes)} nodes to {abs_path}",
         )
     except Exception as e:
         logger.error(f"Failed to save catalog: {e}")
