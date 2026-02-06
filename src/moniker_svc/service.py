@@ -22,6 +22,7 @@ from .catalog.registry import CatalogRegistry
 from .catalog.types import CatalogNode, ResolvedOwnership, SourceBinding
 from .config import Config
 from .dialect import get_dialect
+from .domains.registry import DomainRegistry
 from .moniker.parser import parse_moniker, MonikerParseError
 from .moniker.types import Moniker, VersionType
 from .telemetry.emitter import TelemetryEmitter
@@ -134,6 +135,7 @@ class MonikerService:
     cache: InMemoryCache
     telemetry: TelemetryEmitter
     config: Config
+    domain_registry: DomainRegistry | None = None
 
     # Cache resolution results
     cache_enabled: bool = field(default=True, init=False)
@@ -200,8 +202,8 @@ class MonikerService:
                 # Build resolved source
                 resolved_source = self._build_resolved_source(binding, moniker, sub_path)
 
-                # Resolve ownership
-                ownership = self.catalog.resolve_ownership(path_str)
+                # Resolve ownership (with domain fallback)
+                ownership = self.catalog.resolve_ownership(path_str, self.domain_registry)
 
                 # Get catalog node
                 node = self.catalog.get(path_str)
@@ -631,7 +633,7 @@ class MonikerService:
         except Exception:
             path_str = moniker_str
 
-        ownership = self.catalog.resolve_ownership(path_str)
+        ownership = self.catalog.resolve_ownership(path_str, self.domain_registry)
 
         event = UsageEvent.create(
             moniker=moniker_str,
@@ -669,7 +671,7 @@ class MonikerService:
             # Extract just the leaf names
             children = [p.split("/")[-1] for p in catalog_children]
 
-            ownership = self.catalog.resolve_ownership(path_str)
+            ownership = self.catalog.resolve_ownership(path_str, self.domain_registry)
 
             return ListResult(
                 children=sorted(set(children)),
@@ -715,8 +717,8 @@ class MonikerService:
             # Get catalog node
             node = self.catalog.get(path_str)
 
-            # Resolve ownership
-            ownership = self.catalog.resolve_ownership(path_str)
+            # Resolve ownership (with domain fallback)
+            ownership = self.catalog.resolve_ownership(path_str, self.domain_registry)
 
             # Check if there's a source binding (but don't return details)
             binding_info = self.catalog.find_source_binding(path_str)
@@ -766,8 +768,8 @@ class MonikerService:
             moniker = parse_moniker(moniker_str)
             path_str = str(moniker.path)
 
-            # Get ownership with provenance
-            ownership = self.catalog.resolve_ownership(path_str)
+            # Get ownership with provenance (with domain fallback)
+            ownership = self.catalog.resolve_ownership(path_str, self.domain_registry)
 
             # Get binding info
             binding_info = self.catalog.find_source_binding(path_str)

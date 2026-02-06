@@ -643,15 +643,9 @@ async def lifespan(app: FastAPI):
         )
         logger.info(f"SQL Catalog enabled (db_path={config.sql_catalog.db_path})")
 
-    # Initialize Config UI if enabled
-    if config.config_ui.enabled:
-        config_ui_routes.configure(
-            catalog=catalog,
-            yaml_output_path=config.config_ui.yaml_output_path,
-            catalog_definition_file=str(catalog_definition_path) if catalog_definition_path else None,
-            service_cache=cache,
-            show_file_paths=config.config_ui.show_file_paths,
-        )
+    # Initialize Config UI if enabled (will get domain_registry later)
+    config_ui_enabled = config.config_ui.enabled
+    if config_ui_enabled:
         logger.info(f"Config UI enabled (catalog_file={catalog_definition_path})")
 
     # Initialize Domain Configuration
@@ -670,6 +664,20 @@ async def lifespan(app: FastAPI):
         domains_yaml_path=domains_yaml_path,
     )
     logger.info("Domain configuration enabled")
+
+    # Set domain_registry on service for ownership inheritance
+    _service.domain_registry = _domain_registry
+
+    # Now configure Config UI with domain registry for ownership inheritance
+    if config_ui_enabled:
+        config_ui_routes.configure(
+            catalog=catalog,
+            yaml_output_path=config.config_ui.yaml_output_path,
+            catalog_definition_file=str(catalog_definition_path) if catalog_definition_path else None,
+            service_cache=cache,
+            show_file_paths=config.config_ui.show_file_paths,
+            domain_registry=_domain_registry,
+        )
 
     logger.info("Moniker resolution service started")
 

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 from ..moniker.types import MonikerPath
 from .types import CatalogNode, Ownership, ResolvedOwnership, SourceBinding
+
+if TYPE_CHECKING:
+    from ..domains.registry import DomainRegistry
 
 
 @dataclass
@@ -82,13 +85,27 @@ class CatalogRegistry:
         with self._lock:
             return list(self._children.get(path_str, set()))
 
-    def resolve_ownership(self, path: str | MonikerPath) -> ResolvedOwnership:
+    def resolve_ownership(
+        self,
+        path: str | MonikerPath,
+        domain_registry: "DomainRegistry | None" = None,
+    ) -> ResolvedOwnership:
         """
         Resolve effective ownership for a path by walking up the hierarchy.
 
         Each ownership field inherits independently from the nearest ancestor
         that defines it. This includes both simplified ownership fields and
         formal governance roles (ADOP, ADS, ADAL).
+
+        If a domain_registry is provided, fields not set in the catalog hierarchy
+        will fall back to the domain's ownership fields:
+        - domain.owner → accountable_owner
+        - domain.tech_custodian → data_specialist
+        - domain.help_channel → support_channel
+
+        Args:
+            path: The moniker path to resolve ownership for
+            domain_registry: Optional domain registry for ownership fallback
         """
         path_str = str(path) if isinstance(path, MonikerPath) else path
 
@@ -141,6 +158,22 @@ class CatalogRegistry:
                     if node.ownership.ui:
                         ui = node.ownership.ui
                         ui_source = p
+
+            # Fall back to domain ownership for fields not set in catalog
+            if domain_registry:
+                domain = domain_registry.get_domain_for_path(path_str)
+                if domain:
+                    domain_source = f"domain:{domain.name}"
+                    # Map domain fields to ownership fields
+                    if not accountable_owner and domain.owner:
+                        accountable_owner = domain.owner
+                        accountable_owner_source = domain_source
+                    if not data_specialist and domain.tech_custodian:
+                        data_specialist = domain.tech_custodian
+                        data_specialist_source = domain_source
+                    if not support_channel and domain.help_channel:
+                        support_channel = domain.help_channel
+                        support_channel_source = domain_source
 
             return ResolvedOwnership(
                 accountable_owner=accountable_owner,

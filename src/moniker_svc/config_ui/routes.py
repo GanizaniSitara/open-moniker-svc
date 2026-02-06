@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from fastapi import APIRouter, HTTPException
@@ -34,6 +34,9 @@ from .models import (
     UpdateNodeRequest,
 )
 
+if TYPE_CHECKING:
+    from ..domains.registry import DomainRegistry
+
 logger = logging.getLogger(__name__)
 
 # Create router
@@ -45,6 +48,7 @@ _yaml_output_path: str = "catalog_output.yaml"
 _catalog_definition_file: str | None = None
 _service_cache = None  # Optional cache to clear on changes
 _show_file_paths: bool = False  # Show file paths in save messages
+_domain_registry: "DomainRegistry | None" = None  # For ownership inheritance
 
 
 def configure(
@@ -53,6 +57,7 @@ def configure(
     catalog_definition_file: str | None = None,
     service_cache=None,
     show_file_paths: bool = False,
+    domain_registry: "DomainRegistry | None" = None,
 ) -> None:
     """Configure the Config UI routes.
 
@@ -62,13 +67,15 @@ def configure(
         catalog_definition_file: Path to catalog definition file for reload
         service_cache: Optional cache to clear when catalog changes
         show_file_paths: Show file paths in save success messages
+        domain_registry: Optional domain registry for ownership inheritance
     """
-    global _catalog, _yaml_output_path, _catalog_definition_file, _service_cache, _show_file_paths
+    global _catalog, _yaml_output_path, _catalog_definition_file, _service_cache, _show_file_paths, _domain_registry
     _catalog = catalog
     _yaml_output_path = yaml_output_path
     _catalog_definition_file = catalog_definition_file
     _service_cache = service_cache
     _show_file_paths = show_file_paths
+    _domain_registry = domain_registry
 
 
 def _clear_cache():
@@ -284,8 +291,8 @@ async def get_node(path: str):
     if node is None:
         raise HTTPException(status_code=404, detail=f"Node not found: {path}")
 
-    # Resolve ownership through hierarchy
-    resolved = catalog.resolve_ownership(path)
+    # Resolve ownership through hierarchy (with domain fallback)
+    resolved = catalog.resolve_ownership(path, _domain_registry)
 
     return NodeWithOwnershipModel(
         node=_node_to_model(node),
