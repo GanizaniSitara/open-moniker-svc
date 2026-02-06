@@ -642,7 +642,9 @@
                     <td>
                         <div class="domain-name">
                             <span class="domain-color-dot" style="background: ${d.color}"></span>
-                            ${escapeHtml(d.name)} ${d.short_code ? `(${d.short_code})` : ''}
+                            <strong>${escapeHtml(d.name)}</strong>
+                            ${d.display_name && d.display_name !== d.name ? ` - ${escapeHtml(d.display_name)}` : ''}
+                            ${d.short_code ? ` <span class="short-code">${escapeHtml(d.short_code)}</span>` : ''}
                         </div>
                     </td>
                     <td class="editable truncate" data-field="owner" contenteditable="true" title="${escapeHtml(d.owner)}">${escapeHtml(d.owner)}</td>
