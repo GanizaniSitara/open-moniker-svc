@@ -104,6 +104,14 @@
         .btn-secondary { background: rgba(255, 255, 255, 0.15); }
         .btn-success { background: var(--c-green); }
         .btn-danger { background: var(--c-red); }
+        .btn-danger.btn-outlined {
+            background: transparent;
+            color: var(--c-red);
+            border: 1px solid var(--c-red);
+        }
+        .btn-danger.btn-outlined:hover {
+            background: rgba(208, 0, 43, 0.1);
+        }
         .btn-sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-500); }
 
         /* Main layout */
@@ -115,7 +123,7 @@
 
         /* Tree panel */
         .tree-panel {
-            width: 300px;
+            width: clamp(250px, 25vw, 350px);
             background: var(--color-surface);
             border-right: 1px solid var(--border);
             display: flex;
@@ -338,21 +346,22 @@
         .form-container {
             flex: 1;
             overflow-y: auto;
-            padding: var(--sp-5);
+            padding: var(--sp-4);
         }
 
         .form-actions {
-            padding: var(--sp-4) var(--sp-5);
+            padding: var(--sp-3) var(--sp-4);
             border-top: 1px solid var(--border);
             background: var(--color-surface);
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
+            gap: var(--sp-3);
         }
 
         /* Form styles */
         .form-section {
-            margin-bottom: var(--sp-5);
+            margin-bottom: var(--sp-4);
             background: var(--color-surface);
             border: 1px solid var(--border);
             border-radius: var(--radius-2);
@@ -381,11 +390,11 @@
         .form-section:not(.collapsed) .section-toggle::before { content: '\25BC'; }
 
         .section-content {
-            padding: var(--sp-4);
+            padding: var(--sp-3);
         }
 
         .form-row {
-            margin-bottom: var(--sp-4);
+            margin-bottom: var(--sp-3);
         }
 
         .form-row:last-child { margin-bottom: 0; }
@@ -504,7 +513,7 @@
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: var(--sp-4);
+            gap: var(--sp-3);
         }
 
         @media (max-width: 900px) {
@@ -706,7 +715,7 @@
 
         /* Placeholder Reference Side Panel */
         .placeholder-panel {
-            width: 340px;
+            width: clamp(280px, 28vw, 400px);
             background: var(--color-surface);
             border-left: 1px solid var(--border);
             display: flex;
@@ -932,10 +941,14 @@
             <div class="form-panel">
                 <div class="panel-header">
                     <span id="form-title">Node Details</span>
-                    <button class="placeholder-toggle-btn" id="placeholder-panel-toggle"
-                            onclick="togglePlaceholderPanel()" style="display: none;">
-                        Placeholders
-                    </button>
+                    <div style="display: flex; gap: var(--sp-2); align-items: center;">
+                        <button class="btn btn-sm btn-secondary" id="expand-all-sections-btn" onclick="expandAllSections()" style="display: none;">Expand All</button>
+                        <button class="btn btn-sm btn-secondary" id="collapse-all-sections-btn" onclick="collapseAllSections()" style="display: none;">Collapse All</button>
+                        <button class="placeholder-toggle-btn" id="placeholder-panel-toggle"
+                                onclick="togglePlaceholderPanel()" style="display: none;">
+                            Placeholders
+                        </button>
+                    </div>
                 </div>
                 <div class="form-container" id="form-container">
                     <div class="empty-state">
@@ -944,11 +957,9 @@
                     </div>
                 </div>
                 <div class="form-actions" id="form-actions" style="display: none;">
-                    <button class="btn btn-danger" onclick="deleteNode()">Delete</button>
-                    <div>
-                        <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
-                        <button class="btn btn-success" onclick="saveNode()">Save Node</button>
-                    </div>
+                    <button class="btn btn-danger btn-outlined" onclick="deleteNode()">Delete</button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+                    <button class="btn btn-success" onclick="saveNode()">Save Node</button>
                 </div>
             </div>
 
@@ -1154,6 +1165,9 @@
                 renderForm(data);
                 selectedPath = path;
                 document.getElementById('form-actions').style.display = 'flex';
+                // Show section expand/collapse buttons
+                document.getElementById('expand-all-sections-btn').style.display = 'inline-flex';
+                document.getElementById('collapse-all-sections-btn').style.display = 'inline-flex';
             } catch (e) {
                 showToast('Failed to load node: ' + e.message, 'error');
             }
@@ -1638,13 +1652,15 @@
                         <span class="section-toggle"></span>
                     </div>
                     <div class="section-content">
-                        ${renderOwnershipField('accountable_owner', 'Accountable Owner', node.ownership, resolved)}
-                        ${renderOwnershipField('data_specialist', 'Data Specialist', node.ownership, resolved)}
-                        ${renderOwnershipField('support_channel', 'Support Channel', node.ownership, resolved)}
-                        ${renderOwnershipField('adop', 'ADOP', node.ownership, resolved)}
-                        ${renderOwnershipField('ads', 'ADS', node.ownership, resolved)}
-                        ${renderOwnershipField('adal', 'ADAL', node.ownership, resolved)}
-                        ${renderOwnershipField('ui', 'UI Link', node.ownership, resolved)}
+                        <div class="form-grid">
+                            ${renderOwnershipField('accountable_owner', 'Accountable Owner', node.ownership, resolved)}
+                            ${renderOwnershipField('data_specialist', 'Data Specialist', node.ownership, resolved)}
+                            ${renderOwnershipField('support_channel', 'Support Channel', node.ownership, resolved)}
+                            ${renderOwnershipField('adop', 'ADOP', node.ownership, resolved)}
+                            ${renderOwnershipField('ads', 'ADS', node.ownership, resolved)}
+                            ${renderOwnershipField('adal', 'ADAL', node.ownership, resolved)}
+                            ${renderOwnershipField('ui', 'UI Link', node.ownership, resolved)}
+                        </div>
                     </div>
                 </div>
 
@@ -1941,6 +1957,16 @@
 
         function toggleSection(header) {
             header.closest('.form-section').classList.toggle('collapsed');
+        }
+
+        function expandAllSections() {
+            document.querySelectorAll('#form-container .form-section.collapsed').forEach(s => s.classList.remove('collapsed'));
+        }
+
+        function collapseAllSections() {
+            document.querySelectorAll('#form-container .form-section').forEach((s, i) => {
+                if (i > 0) s.classList.add('collapsed');
+            });
         }
 
         // =============================================================================

@@ -213,6 +213,11 @@
             box-shadow: inset 0 0 0 2px var(--c-peacock);
         }
 
+        .editable.saving {
+            background: rgba(0, 150, 57, 0.15);
+            transition: background 0.3s;
+        }
+
         .cell-input {
             width: 100%;
             border: none;
@@ -690,14 +695,18 @@
             });
         }
 
-        function handleCellBlur(e) {
+        async function handleCellBlur(e) {
             const cell = e.target;
             const row = cell.closest('tr');
             const name = row.dataset.name;
             const field = cell.dataset.field;
             const value = cell.textContent.trim();
 
-            updateField(name, field, value);
+            // Add visual feedback during save
+            cell.classList.add('saving');
+            await updateField(name, field, value);
+            // Remove saving class after a brief delay to show feedback
+            setTimeout(() => cell.classList.remove('saving'), 300);
         }
 
         async function updateField(name, field, value) {
