@@ -1452,11 +1452,11 @@ async def get_tree(
             has_source_binding = True
             source_type = node.source_binding.source_type.value
 
-        # Build children recursively
+        # Build children recursively (sorted alphabetically)
         children = []
         if depth is None or current_depth < depth:
             child_paths = _service.catalog.children_paths(node_path)
-            for child_path in child_paths:
+            for child_path in sorted(child_paths, key=str.lower):
                 child_node = build_tree_node(child_path, current_depth + 1)
                 if child_node:
                     children.append(child_node)
@@ -1532,7 +1532,7 @@ async def get_tree_root(
         children = []
         if depth is None or current_depth < depth:
             child_paths = _service.catalog.children_paths(node_path)
-            for child_path in child_paths:
+            for child_path in sorted(child_paths, key=str.lower):
                 child_node = build_tree_node(child_path, current_depth + 1)
                 if child_node:
                     children.append(child_node)
@@ -1548,10 +1548,10 @@ async def get_tree_root(
             domain=node.domain,
         )
 
-    # Get root-level nodes
+    # Get root-level nodes (sorted alphabetically)
     root_children = _service.catalog.children_paths("")
     trees = []
-    for child_path in root_children:
+    for child_path in sorted(root_children, key=str.lower):
         tree = build_tree_node(child_path)
         if tree:
             trees.append(tree)
