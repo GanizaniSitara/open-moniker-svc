@@ -224,6 +224,51 @@ async def list_nodes():
     )
 
 
+@router.get("/search")
+async def search_nodes(q: str = ""):
+    """
+    Full text search over catalog nodes.
+
+    Searches across path, display_name, description, and tags.
+    """
+    catalog = _get_catalog()
+
+    if not q or len(q) < 2:
+        return {"results": [], "total": 0, "query": q}
+
+    query_lower = q.lower()
+    nodes = catalog.all_nodes()
+    results = []
+
+    for node in nodes:
+        # Search in path
+        if query_lower in node.path.lower():
+            results.append({"path": node.path, "match": "path", "display_name": node.display_name or ""})
+            continue
+
+        # Search in display_name
+        if node.display_name and query_lower in node.display_name.lower():
+            results.append({"path": node.path, "match": "display_name", "display_name": node.display_name})
+            continue
+
+        # Search in description
+        if node.description and query_lower in node.description.lower():
+            results.append({"path": node.path, "match": "description", "display_name": node.display_name or ""})
+            continue
+
+        # Search in tags
+        if node.tags:
+            for tag in node.tags:
+                if query_lower in tag.lower():
+                    results.append({"path": node.path, "match": "tag", "display_name": node.display_name or ""})
+                    break
+
+    # Sort by path
+    results.sort(key=lambda x: x["path"])
+
+    return {"results": results[:50], "total": len(results), "query": q}
+
+
 @router.get("/nodes/{path:path}", response_model=NodeWithOwnershipModel)
 async def get_node(path: str):
     """Get a node with resolved ownership."""

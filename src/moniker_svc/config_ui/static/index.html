@@ -856,6 +856,12 @@
                     <button class="btn btn-sm btn-secondary" onclick="collapseAll()">Collapse</button>
                 </div>
             </div>
+            <div class="search-box" style="padding: 8px; border-bottom: 1px solid var(--border);">
+                <input type="text" id="search-input" placeholder="Search catalog..."
+                       style="width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px;"
+                       oninput="handleSearch(this.value)">
+                <div id="search-results" style="display: none; max-height: 200px; overflow-y: auto; margin-top: 4px; background: white; border: 1px solid var(--border); border-radius: 4px;"></div>
+            </div>
             <div class="tree-container">
                 <div id="tree" class="tree"><div class="loading">Loading...</div></div>
             </div>
@@ -1247,6 +1253,71 @@
             document.querySelectorAll('.tree li').forEach(el => {
                 if (el.querySelector('ul')) el.classList.add('collapsed');
             });
+        }
+
+        // =============================================================================
+        // Search Functions
+        // =============================================================================
+
+        let searchTimeout = null;
+
+        async function handleSearch(query) {
+            const resultsDiv = document.getElementById('search-results');
+
+            // Clear previous timeout
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            // Hide results if query too short
+            if (!query || query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            // Debounce search
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const data = await fetchJSON(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+
+                    if (data.results && data.results.length > 0) {
+                        resultsDiv.innerHTML = data.results.map(r => `
+                            <div class="search-result" onclick="selectSearchResult('${escapeHtml(r.path)}')"
+                                 style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 12px;"
+                                 onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">
+                                <div style="font-weight: 500;">${escapeHtml(r.display_name || r.path.split('/').pop())}</div>
+                                <div style="color: #666; font-size: 11px;">${escapeHtml(r.path)}</div>
+                            </div>
+                        `).join('');
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        resultsDiv.innerHTML = '<div style="padding: 8px; color: #666; font-size: 12px;">No results found</div>';
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Search failed:', e);
+                }
+            }, 200);
+        }
+
+        function selectSearchResult(path) {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').style.display = 'none';
+
+            // Expand tree to show the node
+            expandToPath(path);
+
+            // Select the node
+            selectNode(path);
+        }
+
+        function expandToPath(path) {
+            // Expand all parent nodes
+            const parts = path.split('/');
+            let currentPath = '';
+            for (let i = 0; i < parts.length - 1; i++) {
+                currentPath = currentPath ? currentPath + '/' + parts[i] : parts[i];
+                const node = document.querySelector(`.tree li[data-path="${currentPath}"]`);
+                if (node) node.classList.remove('collapsed');
+            }
         }
 
         // =============================================================================
