@@ -25,7 +25,6 @@ class Domain:
     id: Optional[int] = None    # Numeric ID for ordering in lists/tables
 
     # Display and identification
-    display_name: str = ""      # Human-readable name, e.g., "Market Indices"
     short_code: str = ""        # Short code, e.g., "IDX", "CMD", "REF"
     data_category: str = ""          # e.g., "Market Data", "Reference Data"
     color: str = "#6B7280"      # Hex color for UI display (default: gray)
@@ -68,7 +67,6 @@ class Domain:
         return cls(
             name=name,
             id=id_val,
-            display_name=data.get("display_name", ""),
             short_code=data.get("short_code", ""),
             data_category=data.get("data_category", ""),
             color=data.get("color", "#6B7280"),

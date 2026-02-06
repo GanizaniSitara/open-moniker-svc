@@ -458,8 +458,7 @@
                         <tr>
                             <th>#</th>
                             <th>Category</th>
-                            <th>Domain</th>
-                            <th>Display Name</th>
+                            <th>Domain Name</th>
                             <th>Owner</th>
                             <th>Tech Custodian</th>
                             <th>Business Steward</th>
@@ -474,7 +473,7 @@
                     </thead>
                     <tbody id="domains-body">
                         <tr>
-                            <td colspan="14" class="empty-state">Loading domains...</td>
+                            <td colspan="13" class="empty-state">Loading domains...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -487,14 +486,10 @@
         <div class="modal">
             <div class="modal-header" id="modal-title">Add Domain</div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label>Domain Name *</label>
-                    <input type="text" class="form-control" id="field-name" placeholder="e.g., derivatives">
-                </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Display Name</label>
-                        <input type="text" class="form-control" id="field-display_name" placeholder="e.g., Derivatives">
+                        <label>Domain Name *</label>
+                        <input type="text" class="form-control" id="field-name" placeholder="e.g., Derivatives">
                     </div>
                     <div class="form-group">
                         <label>Short Code</label>
@@ -630,13 +625,13 @@
                 return;
             }
 
-            // Sort domains by category then display_name
+            // Sort domains by category then name
             const sortedDomains = [...domains].sort((a, b) => {
                 const catA = (a.data_category || '').toLowerCase();
                 const catB = (b.data_category || '').toLowerCase();
                 if (catA !== catB) return catA.localeCompare(catB);
-                const nameA = (a.display_name || a.name || '').toLowerCase();
-                const nameB = (b.display_name || b.name || '').toLowerCase();
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
                 return nameA.localeCompare(nameB);
             });
 
@@ -647,10 +642,9 @@
                     <td>
                         <div class="domain-name">
                             <span class="domain-color-dot" style="background: ${d.color}"></span>
-                            ${d.short_code || '-'}
+                            ${escapeHtml(d.name)} ${d.short_code ? `(${d.short_code})` : ''}
                         </div>
                     </td>
-                    <td class="editable" data-field="display_name" contenteditable="true">${escapeHtml(d.display_name)}</td>
                     <td class="editable truncate" data-field="owner" contenteditable="true" title="${escapeHtml(d.owner)}">${escapeHtml(d.owner)}</td>
                     <td class="editable truncate" data-field="tech_custodian" contenteditable="true" title="${escapeHtml(d.tech_custodian)}">${escapeHtml(d.tech_custodian)}</td>
                     <td class="editable truncate" data-field="business_steward" contenteditable="true" title="${escapeHtml(d.business_steward)}">${escapeHtml(d.business_steward)}</td>
@@ -767,7 +761,7 @@
             document.getElementById('field-name').disabled = false;
 
             // Clear fields
-            ['name', 'display_name', 'short_code', 'owner', 'tech_custodian',
+            ['name', 'short_code', 'owner', 'tech_custodian',
              'business_steward', 'data_category', 'help_channel', 'wiki_link', 'notes'].forEach(f => {
                 document.getElementById(`field-${f}`).value = '';
             });
@@ -790,7 +784,6 @@
 
             // Fill fields
             document.getElementById('field-name').value = domain.name;
-            document.getElementById('field-display_name').value = domain.display_name;
             document.getElementById('field-short_code').value = domain.short_code;
             document.getElementById('field-data_category').value = domain.data_category;
             document.getElementById('field-color').value = domain.color;
@@ -815,7 +808,6 @@
         async function saveModal() {
             const payload = {
                 name: document.getElementById('field-name').value.trim(),
-                display_name: document.getElementById('field-display_name').value.trim(),
                 short_code: document.getElementById('field-short_code').value.trim(),
                 data_category: document.getElementById('field-data_category').value.trim(),
                 color: document.getElementById('field-color').value.trim(),

@@ -14,9 +14,8 @@ class DomainModel(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "name": "indices",
+                "name": "Market Indices",
                 "id": 1,
-                "display_name": "Market Indices",
                 "short_code": "IDX",
                 "data_category": "Market Data",
                 "color": "#4A90D9",
@@ -32,9 +31,8 @@ class DomainModel(BaseModel):
         }
     )
 
-    name: str = Field(..., description="Domain identifier (matches first segment of moniker paths)")
+    name: str = Field(..., description="Domain name")
     id: Optional[int] = Field(None, description="Numeric ID for ordering")
-    display_name: str = Field("", description="Human-readable name")
     short_code: str = Field("", description="Short code (e.g., IDX, CMD, REF)")
     data_category: str = Field("", description="Data category classification")
     color: str = Field("#6B7280", description="Hex color code for UI display")
@@ -54,9 +52,8 @@ class CreateDomainRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "name": "derivatives",
+                "name": "Derivatives",
                 "id": 14,
-                "display_name": "Derivatives",
                 "short_code": "DRV",
                 "data_category": "Market Data",
                 "color": "#8E44AD",
@@ -66,9 +63,8 @@ class CreateDomainRequest(BaseModel):
         }
     )
 
-    name: str = Field(..., description="Domain identifier (must be unique)")
+    name: str = Field(..., description="Domain name (must be unique)")
     id: Optional[int] = Field(None, description="Numeric ID for ordering")
-    display_name: str = Field("", description="Human-readable name")
     short_code: str = Field("", description="Short code")
     data_category: str = Field("", description="Data category")
     color: str = Field("#6B7280", description="Hex color code")
@@ -88,7 +84,6 @@ class UpdateDomainRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "display_name": "Market Indices (Updated)",
                 "owner": "new-owner@firm.com",
                 "color": "#2980B9",
             }
@@ -96,7 +91,6 @@ class UpdateDomainRequest(BaseModel):
     )
 
     id: Optional[int] = Field(None, description="Numeric ID for ordering")
-    display_name: Optional[str] = Field(None, description="Human-readable name")
     short_code: Optional[str] = Field(None, description="Short code")
     data_category: Optional[str] = Field(None, description="Data category")
     color: Optional[str] = Field(None, description="Hex color code")
@@ -118,8 +112,7 @@ class DomainListResponse(BaseModel):
             "example": {
                 "domains": [
                     {
-                        "name": "indices",
-                        "display_name": "Market Indices",
+                        "name": "Market Indices",
                         "short_code": "IDX",
                         "color": "#4A90D9",
                     }
@@ -140,8 +133,7 @@ class DomainWithMonikersResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "domain": {
-                    "name": "indices",
-                    "display_name": "Market Indices",
+                    "name": "Market Indices",
                     "short_code": "IDX",
                     "color": "#4A90D9",
                 },
