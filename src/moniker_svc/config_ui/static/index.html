@@ -1187,8 +1187,8 @@
                     // Build badges
                     let badges = '';
                     if (isTopLevelNode && hasDomain) {
-                        const badgeLabel = domainInfo.short_code || domainInfo.display_name || nodeDomain;
-                        badges += `<span class="domain-badge" title="Domain: ${domainInfo.display_name || nodeDomain}">${badgeLabel}</span>`;
+                        const badgeLabel = domainInfo.short_code || nodeDomain;
+                        badges += `<span class="domain-badge" title="Domain: ${nodeDomain}">${badgeLabel}</span>`;
                     }
                     if (hasSource) {
                         badges += `<span class="node-badge">${node.source_binding.type}</span>`;
@@ -1274,9 +1274,8 @@
                     optionsHtml += `<optgroup label="${escapeHtml(category)}">`;
                     currentCategory = category;
                 }
-                const displayLabel = d.display_name || d.name;
                 const isSelected = currentDomain === d.name ? 'selected' : '';
-                optionsHtml += `<option value="${escapeHtml(d.name)}" ${isSelected}>${escapeHtml(displayLabel)}</option>`;
+                optionsHtml += `<option value="${escapeHtml(d.name)}" ${isSelected}>${escapeHtml(d.name)}</option>`;
             }
             if (currentCategory !== null) {
                 optionsHtml += '</optgroup>';
