@@ -1942,6 +1942,50 @@ _UI_HTML = """
 
         /* Loading */
         .loading { text-align: center; padding: 40px; color: var(--c-gray); }
+
+        /* Search */
+        .search-box {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: var(--font-sans);
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--c-peacock);
+            box-shadow: 0 0 0 3px rgba(0, 85, 135, 0.15);
+        }
+        .search-results {
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            top: 100%;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .search-result {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .search-result:last-child { border-bottom: none; }
+        .search-result:hover { background: rgba(0, 85, 135, 0.08); }
+        .search-result-path { font-weight: 700; color: var(--c-navy); }
+        .search-result-match { font-size: 11px; color: var(--c-gray); margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -1962,6 +2006,10 @@ _UI_HTML = """
                     <button class="btn-small" onclick="expandAll()">Expand All</button>
                     <button class="btn-small" onclick="collapseAll()">Collapse All</button>
                 </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search catalog..." oninput="handleSearch(this.value)">
+                <div id="search-results" class="search-results"></div>
             </div>
             <div class="panel-content">
                 <div id="tree" class="tree"><div class="loading">Loading...</div></div>
@@ -2083,6 +2131,74 @@ _UI_HTML = """
                 if (el.querySelector('ul')) el.classList.add('collapsed');
             });
         }
+
+        // Search functionality
+        let searchTimeout = null;
+
+        async function handleSearch(query) {
+            const resultsDiv = document.getElementById('search-results');
+            const inputEl = document.getElementById('search-input');
+
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            if (!query || query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch('/config/search?q=' + encodeURIComponent(query));
+                    const data = await res.json();
+
+                    if (data.results && data.results.length > 0) {
+                        resultsDiv.innerHTML = data.results.map(r => `
+                            <div class="search-result" onclick="selectSearchResult('${r.path.replace(/'/g, "\\\\'")}')">
+                                <div class="search-result-path">${r.path}</div>
+                                <div class="search-result-match">Match: ${r.match}${r.display_name ? ' • ' + r.display_name : ''}</div>
+                            </div>
+                        `).join('');
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        resultsDiv.innerHTML = '<div class="search-result" style="color: var(--c-gray);">No results found</div>';
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Search failed:', e);
+                    resultsDiv.style.display = 'none';
+                }
+            }, 200);
+        }
+
+        function selectSearchResult(path) {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').style.display = 'none';
+            expandToPath(path);
+            // Find and select the node
+            const li = document.querySelector(`li[data-path="${path}"]`);
+            if (li) {
+                const nodeEl = li.querySelector('.node');
+                if (nodeEl) selectNode(nodeEl);
+            }
+        }
+
+        function expandToPath(path) {
+            const parts = path.split('/');
+            let currentPath = '';
+            for (let i = 0; i < parts.length; i++) {
+                currentPath = parts.slice(0, i + 1).join('/');
+                const li = document.querySelector(`li[data-path="${currentPath}"]`);
+                if (li) li.classList.remove('collapsed');
+            }
+        }
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            const searchBox = document.querySelector('.search-box');
+            if (searchBox && !searchBox.contains(e.target)) {
+                document.getElementById('search-results').style.display = 'none';
+            }
+        });
 
         loadTree();
     </script>
